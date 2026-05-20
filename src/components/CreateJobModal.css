@@ -43,3 +43,56 @@
 .form-input::placeholder {
   color: #d1d5db;
 }
+
+.form-textarea {
+  height: auto;
+  padding: 12px 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.create-job-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.create-job-section {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #f0f0f3;
+}
+
+.create-job-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.create-job-section__header .form-label {
+  margin-bottom: 0;
+}
+
+.dep-repo-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.dep-repo-row .form-input {
+  margin-bottom: 0;
+}
+
+.dep-repo-row .btn {
+  height: 44px;
+  width: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

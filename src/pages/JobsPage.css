@@ -359,8 +359,24 @@
 .action-btn--process:hover {
   background: #d1fae5;
 }
+.action-btn--followup:hover {
+  background: #ede9fe;
+}
 .action-btn--danger:hover {
   background: #fee2e2;
+}
+
+/* Job type badge */
+.job-type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ede9fe;
+  color: #5b21b6;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 /* Truncated text */

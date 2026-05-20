@@ -50,6 +50,11 @@ export default function JobDetailModal({
     if (resultsJson) navigator.clipboard.writeText(resultsJson);
   };
 
+  const jobTypeVersionDisplay =
+    job?.reviewJobType && job?.reviewJobTypeVersion != null
+      ? `${job.reviewJobType} v${job.reviewJobTypeVersion}`
+      : job?.reviewJobType ?? null;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -88,6 +93,7 @@ export default function JobDetailModal({
                   <Field label="Branch" value={job.githubBranch} mono />
                   <Field label="Commit" value={job.githubCommit} mono />
                   <Field label="Status" value={job.status} />
+                  <Field label="Job Type / Version" value={jobTypeVersionDisplay} mono />
                   {job.error && <Field label="Error" value={job.error} full />}
                 </div>
               </div>
@@ -138,7 +144,7 @@ export default function JobDetailModal({
                       className="btn btn--secondary btn--sm"
                       onClick={handleCopyResults}
                     >
-                      ⎘ Copy JSON
+                      Copy JSON
                     </button>
                   )}
                 </div>

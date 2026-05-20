@@ -7,6 +7,9 @@ import type {
   ProcessJobResult,
   CreateJobResult,
   DeleteJobResult,
+  FollowUpResult,
+  ReviewJobType,
+  ReviewJobTypeVersion,
 } from "../types/job.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
@@ -103,6 +106,103 @@ export async function deleteJob(id: string): Promise<DeleteJobResult> {
     `/job/${encodeURIComponent(id)}`,
     {
       method: "DELETE",
+    },
+  );
+  return res.data;
+}
+
+export async function followUpJob(
+  id: string,
+  prompt: string,
+): Promise<FollowUpResult> {
+  const res = await apiFetch<FollowUpResult>(
+    `/job/${encodeURIComponent(id)}/follow-up`,
+    {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    },
+  );
+  return res.data;
+}
+
+// --- Job Type API ---
+
+export async function getJobTypes(): Promise<ReviewJobType[]> {
+  const res = await apiFetch<ReviewJobType[]>("/job-type");
+  return res.data;
+}
+
+export async function getJobType(id: string): Promise<ReviewJobType> {
+  const res = await apiFetch<ReviewJobType>(
+    `/job-type/${encodeURIComponent(id)}`,
+  );
+  return res.data;
+}
+
+export async function createJobType(
+  data: Omit<ReviewJobType, "createdAt" | "updatedAt">,
+): Promise<ReviewJobType> {
+  const res = await apiFetch<ReviewJobType>("/job-type", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data;
+}
+
+export async function updateJobType(
+  id: string,
+  data: Partial<Omit<ReviewJobType, "id" | "createdAt" | "updatedAt">>,
+): Promise<ReviewJobType> {
+  const res = await apiFetch<ReviewJobType>(
+    `/job-type/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    },
+  );
+  return res.data;
+}
+
+export async function deleteJobType(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  const res = await apiFetch<{ deleted: boolean }>(
+    `/job-type/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
+  return res.data;
+}
+
+export async function getJobTypeVersions(
+  id: string,
+): Promise<ReviewJobTypeVersion[]> {
+  const res = await apiFetch<ReviewJobTypeVersion[]>(
+    `/job-type/${encodeURIComponent(id)}/versions`,
+  );
+  return res.data;
+}
+
+export async function getJobTypeVersion(
+  id: string,
+  versionId: string,
+): Promise<ReviewJobTypeVersion> {
+  const res = await apiFetch<ReviewJobTypeVersion>(
+    `/job-type/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`,
+  );
+  return res.data;
+}
+
+export async function rollbackJobType(
+  id: string,
+  versionId: string,
+): Promise<ReviewJobType> {
+  const res = await apiFetch<ReviewJobType>(
+    `/job-type/${encodeURIComponent(id)}/rollback`,
+    {
+      method: "POST",
+      body: JSON.stringify({ versionId }),
     },
   );
   return res.data;

@@ -17,6 +17,7 @@ import CreateJobModal from "../components/CreateJobModal";
 import ProcessJobModal from "../components/ProcessJobModal";
 import JobDetailModal from "../components/JobDetailModal";
 import BatchCreateJobModal from "../components/BatchCreateJobModal";
+import FollowUpModal from "../components/FollowUpModal";
 import "./JobsPage.css";
 
 interface Toast {
@@ -49,6 +50,9 @@ export default function JobsPage() {
   // Process modal
   const [processJobId, setProcessJobId] = useState<string | null>(null);
   const [processingJobId, setProcessingJobId] = useState<string | null>(null);
+
+  // Follow-up modal
+  const [followUpJobId, setFollowUpJobId] = useState<string | null>(null);
 
   const showToast = useCallback(
     (message: string, type: Toast["type"] = "info") => {
@@ -262,16 +266,16 @@ export default function JobsPage() {
               onClick={fetchJobs}
               disabled={loading}
             >
-              {loading ? "↻ Loading…" : "↻ Refresh"}
+              {loading ? "Loading…" : "Refresh"}
             </button>
             <button className="btn btn--warning" onClick={handleProcessPending}>
-              ▶ Process Pending
+              Process Pending
             </button>
             <button
               className="btn btn--secondary"
               onClick={() => setShowBatchModal(true)}
             >
-              ⊕ Batch Create
+              Batch Create
             </button>
             <button
               className="btn btn--primary"
@@ -290,8 +294,8 @@ export default function JobsPage() {
                 <th>Job ID</th>
                 <th>Repository</th>
                 <th>Branch</th>
+                <th>Type</th>
                 <th>Status</th>
-                <th>Dedup Key</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -337,13 +341,13 @@ export default function JobsPage() {
                       <code className="branch">{job.githubBranch ?? "—"}</code>
                     </td>
                     <td>
-                      <span className={statusBadgeClass(job.status)}>
-                        {job.status ?? "—"}
+                      <span className="job-type-badge">
+                        {job.reviewJobType ?? "PII"}
                       </span>
                     </td>
                     <td>
-                      <span className="truncated" title={job.dedupKey}>
-                        {job.dedupKey ? truncate(job.dedupKey, 16) : "—"}
+                      <span className={statusBadgeClass(job.status)}>
+                        {job.status ?? "—"}
                       </span>
                     </td>
                     <td>{formatDate(job.createdAt)}</td>
@@ -364,6 +368,15 @@ export default function JobsPage() {
                         >
                           {processingJobId === job.id ? "⏳" : "▶"}
                         </button>
+                        {job.status === "COMPLETED" && (
+                          <button
+                            className="action-btn action-btn--followup"
+                            title="Follow Up"
+                            onClick={() => setFollowUpJobId(job.id!)}
+                          >
+                            💬
+                          </button>
+                        )}
                         <button
                           className="action-btn action-btn--danger"
                           title="Delete Job"
@@ -442,6 +455,24 @@ export default function JobsPage() {
           onClose={() => setProcessJobId(null)}
           onConfirm={handleProcessConfirm}
           processing={processingJobId === processJobId}
+        />
+      )}
+
+      {followUpJobId && (
+        <FollowUpModal
+          jobId={followUpJobId}
+          onClose={() => setFollowUpJobId(null)}
+          onDone={(newFindings) => {
+            setFollowUpJobId(null);
+            fetchJobs();
+            showToast(
+              `Follow-up completed: ${newFindings} new finding${newFindings !== 1 ? "s" : ""}`,
+              "success",
+            );
+          }}
+          onError={(msg) => {
+            showToast(msg, "error");
+          }}
         />
       )}
 

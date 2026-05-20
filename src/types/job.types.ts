@@ -7,6 +7,8 @@ export interface GithubReviewJob {
   githubBranch: string;
   githubCommit?: string | null;
   status: JobStatus;
+  reviewJobType?: string | null;
+  reviewJobTypeVersion?: number | null;
   dedupKey?: string;
   publishedLink?: string | null;
   error?: string | null;
@@ -41,11 +43,20 @@ export interface GetJobsParams {
   includeResults?: boolean;
 }
 
+export interface DependentRepo {
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch: string;
+}
+
 export interface CreateJobParams {
   githubOwner: string;
   githubRepo: string;
   githubBranch: string;
   dedupKey?: string;
+  reviewJobType?: string;
+  dependentRepos?: DependentRepo[];
+  dependencyContext?: string;
 }
 
 export interface ProcessJobResult {
@@ -62,4 +73,42 @@ export interface CreateJobResult {
 export interface DeleteJobResult {
   deleted: boolean;
   jobId?: string;
+}
+
+export interface FollowUpResult {
+  processed: boolean;
+  newFindings?: number;
+  error?: string;
+}
+
+export interface KnowledgeFile {
+  filename: string;
+  content: string;
+}
+
+export interface ReviewJobType {
+  id: string;
+  name: string;
+  description: string | null;
+  systemPromptTemplate: string;
+  modulePromptTemplate: string;
+  summaryPrompt: string;
+  diffUserPromptTemplate: string;
+  knowledgeFiles: KnowledgeFile[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewJobTypeVersion {
+  id: string;
+  reviewJobTypeId: string;
+  version: number;
+  name: string;
+  description: string | null;
+  systemPromptTemplate: string;
+  modulePromptTemplate: string;
+  summaryPrompt: string;
+  diffUserPromptTemplate: string;
+  knowledgeFiles: KnowledgeFile[];
+  createdAt: string;
 }
