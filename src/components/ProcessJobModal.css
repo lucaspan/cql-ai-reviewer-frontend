@@ -1,0 +1,61 @@
+.process-mode {
+  margin-bottom: 4px;
+}
+
+.process-mode__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.process-mode__options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.process-mode__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: white;
+}
+
+.process-mode__option:hover {
+  border-color: #6366f1;
+  background: #f5f3ff;
+}
+
+.process-mode__option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: #6366f1;
+  flex-shrink: 0;
+}
+
+.process-mode__option-content strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.process-mode__option-content span {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.process-job-id {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 12px;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}

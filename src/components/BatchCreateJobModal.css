@@ -1,0 +1,126 @@
+.batch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.batch-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.batch-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 180px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #111827;
+  background: white;
+  resize: vertical;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.batch-textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.batch-textarea::placeholder {
+  color: #d1d5db;
+  font-style: italic;
+}
+
+.batch-preview {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: -8px;
+}
+
+.batch-preview strong {
+  color: #6366f1;
+}
+
+.batch-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.batch-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: ui-monospace, "SF Mono", monospace;
+  background: #f9fafb;
+}
+
+.batch-progress-item--pending {
+  color: #9ca3af;
+}
+.batch-progress-item--running {
+  background: #eff6ff;
+  color: #1e40af;
+}
+.batch-progress-item--success {
+  background: #f0fdf4;
+  color: #065f46;
+}
+.batch-progress-item--error {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.batch-progress-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.batch-progress-repo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-progress-msg {
+  font-size: 11px;
+  color: inherit;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.batch-summary {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #374151;
+  display: flex;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.batch-summary__ok {
+  color: #059669;
+}
+.batch-summary__fail {
+  color: #dc2626;
+}
