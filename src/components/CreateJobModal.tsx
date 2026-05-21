@@ -140,7 +140,7 @@ export default function CreateJobModal({
                   setForm((f) => ({ ...f, reviewJobType: e.target.value }))
                 }
               >
-                <option value="">Default (PII)</option>
+                <option value="">Select a job type</option>
                 {jobTypes.map((jt) => (
                   <option key={jt.id} value={jt.id}>
                     {jt.name}
