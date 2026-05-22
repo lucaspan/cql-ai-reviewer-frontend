@@ -207,3 +207,34 @@ export async function rollbackJobType(
   );
   return res.data;
 }
+
+// --- Settings API ---
+
+export interface SettingResponse {
+  id: string;
+  name: string;
+  value: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getSetting(name: string): Promise<SettingResponse> {
+  const res = await apiFetch<SettingResponse>(
+    `/setting/${encodeURIComponent(name)}`,
+  );
+  return res.data;
+}
+
+export async function updateSetting(
+  name: string,
+  value: Record<string, unknown>,
+): Promise<SettingResponse> {
+  const res = await apiFetch<SettingResponse>(
+    `/setting/${encodeURIComponent(name)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ value }),
+    },
+  );
+  return res.data;
+}
