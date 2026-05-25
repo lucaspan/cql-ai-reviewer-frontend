@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { createJob } from "../api/jobApi";
+import { createJob, getJobTypes } from "../api/jobApi";
+import type { ReviewJobType } from "../types/job.types";
 import "./Modal.css";
 import "./CreateJobModal.css";
 import "./BatchCreateJobModal.css";
@@ -13,6 +14,8 @@ type ItemStatus = "pending" | "running" | "success" | "error";
 
 interface BatchItem {
   repo: string;
+  branch: string;
+  jobType: string;
   status: ItemStatus;
   msg?: string;
 }
@@ -29,18 +32,34 @@ export default function BatchCreateJobModal({
   onDone,
 }: BatchCreateJobModalProps) {
   const [owner, setOwner] = useState("BMO-Prod");
-  const [branch, setBranch] = useState("master");
   const [text, setText] = useState("");
+  const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
+  const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([]);
   const [items, setItems] = useState<BatchItem[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const progressRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef(false);
 
-  const repos = text
+  useEffect(() => {
+    getJobTypes()
+      .then((types) => {
+        setJobTypes(types);
+        if (types.length > 0 && selectedJobTypes.length === 0) {
+          setSelectedJobTypes([types[0].id]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const parsedLines = text
     .split("\n")
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(/\s+/);
+      return { repo: parts[0], branch: parts[1] || "master" };
+    });
 
   useEffect(() => {
     if (progressRef.current) {
@@ -48,19 +67,39 @@ export default function BatchCreateJobModal({
     }
   }, [items]);
 
+  const toggleJobType = (id: string) => {
+    setSelectedJobTypes((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
+    );
+  };
+
+  const totalJobs = parsedLines.length * selectedJobTypes.length;
+
   const handleStart = async () => {
-    if (!repos.length) return;
+    if (!parsedLines.length || !selectedJobTypes.length) return;
     abortRef.current = false;
     setRunning(true);
     setDone(false);
-    setItems(repos.map((repo) => ({ repo, status: "pending" })));
+
+    const allItems: BatchItem[] = [];
+    for (const line of parsedLines) {
+      for (const jt of selectedJobTypes) {
+        allItems.push({
+          repo: line.repo,
+          branch: line.branch,
+          jobType: jt,
+          status: "pending",
+        });
+      }
+    }
+    setItems(allItems);
 
     let ok = 0;
     let fail = 0;
 
-    for (let i = 0; i < repos.length; i++) {
+    for (let i = 0; i < allItems.length; i++) {
       if (abortRef.current) break;
-      const repo = repos[i];
+      const item = allItems[i];
 
       setItems((prev) =>
         prev.map((it, idx) => (idx === i ? { ...it, status: "running" } : it)),
@@ -69,8 +108,9 @@ export default function BatchCreateJobModal({
       try {
         const result = await createJob({
           githubOwner: owner,
-          githubRepo: repo,
-          githubBranch: branch,
+          githubRepo: item.repo,
+          githubBranch: item.branch,
+          reviewJobType: item.jobType,
         });
         if (result.created) {
           ok++;
@@ -123,7 +163,7 @@ export default function BatchCreateJobModal({
           <div>
             <h2 className="modal__title">Batch Create Jobs</h2>
             <p className="modal__subtitle">
-              One repo per line — same owner &amp; branch for all
+              One entry per line: repo branch (branch defaults to master)
             </p>
           </div>
           {!running && (
@@ -145,13 +185,21 @@ export default function BatchCreateJobModal({
                     onChange={(e) => setOwner(e.target.value)}
                   />
                 </div>
-                <div className="form-field">
-                  <label className="form-label">Branch</label>
-                  <input
-                    className="form-input"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                  />
+              </div>
+
+              <div className="form-field">
+                <label className="form-label">Job Types</label>
+                <div className="batch-job-types">
+                  {jobTypes.map((jt) => (
+                    <label key={jt.id} className="batch-job-type-chip">
+                      <input
+                        type="checkbox"
+                        checked={selectedJobTypes.includes(jt.id)}
+                        onChange={() => toggleJobType(jt.id)}
+                      />
+                      <span>{jt.id}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -159,17 +207,21 @@ export default function BatchCreateJobModal({
                 <label className="form-label">Repositories</label>
                 <textarea
                   className="batch-textarea"
-                  placeholder={`LAU_fingerprint_api_20663\nLAU_product_api_20663\nLAU_device_register_api_20663\n…`}
+                  placeholder={`my-repo master\nother-repo develop\nthird-repo`}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   spellCheck={false}
                 />
               </div>
 
-              {repos.length > 0 && (
+              {parsedLines.length > 0 && (
                 <p className="batch-preview">
-                  <strong>{repos.length}</strong> repo
-                  {repos.length !== 1 ? "s" : ""} will be created
+                  <strong>{totalJobs}</strong> job
+                  {totalJobs !== 1 ? "s" : ""} will be created (
+                  {parsedLines.length} repo
+                  {parsedLines.length !== 1 ? "s" : ""} x{" "}
+                  {selectedJobTypes.length} type
+                  {selectedJobTypes.length !== 1 ? "s" : ""})
                 </p>
               )}
             </div>
@@ -189,6 +241,10 @@ export default function BatchCreateJobModal({
                     <span className="batch-progress-repo" title={item.repo}>
                       {item.repo}
                     </span>
+                    <span className="batch-progress-branch">
+                      {item.branch}
+                    </span>
+                    <span className="batch-progress-type">{item.jobType}</span>
                     {item.msg && (
                       <span className="batch-progress-msg">{item.msg}</span>
                     )}
@@ -241,10 +297,14 @@ export default function BatchCreateJobModal({
                 type="button"
                 className="btn btn--primary"
                 onClick={handleStart}
-                disabled={repos.length === 0 || !owner || !branch}
+                disabled={
+                  parsedLines.length === 0 ||
+                  selectedJobTypes.length === 0 ||
+                  !owner
+                }
               >
-                Create {repos.length > 0 ? repos.length : ""} Job
-                {repos.length !== 1 ? "s" : ""}
+                Create {totalJobs > 0 ? totalJobs : ""} Job
+                {totalJobs !== 1 ? "s" : ""}
               </button>
             )}
           </div>

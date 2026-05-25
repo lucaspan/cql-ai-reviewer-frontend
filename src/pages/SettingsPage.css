@@ -1,5 +1,8 @@
 .settings-content {
   max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .settings-state {
@@ -126,4 +129,109 @@
   color: #059669;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* SQS auto-creation settings */
+.settings-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.settings-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 4px 0 12px;
+}
+
+.settings-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-chips--sm {
+  margin-top: 0;
+}
+
+.settings-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.settings-chip:hover {
+  background: #e5e7eb;
+}
+
+.settings-chip input[type="checkbox"] {
+  margin: 0;
+  accent-color: #6366f1;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.settings-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #f0f0f3;
+}
+
+.settings-list-item code {
+  font-size: 13px;
+  color: #374151;
+  flex: 1;
+}
+
+.settings-override-types {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.settings-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-add-row .form-input {
+  flex: 1;
+}
+
+.settings-override-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.settings-override-form .form-input {
+  flex: 1;
+  min-width: 120px;
 }
