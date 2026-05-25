@@ -4,26 +4,39 @@ import type { DependentRepo, ReviewJobType } from "../types/job.types";
 import "./Modal.css";
 import "./CreateJobModal.css";
 
+interface InitialJobData {
+  githubOwner?: string;
+  githubRepo?: string;
+  githubBranch?: string;
+  reviewJobType?: string | null;
+  dependentRepos?: DependentRepo[];
+  dependencyContext?: string;
+}
+
 interface CreateJobModalProps {
   onClose: () => void;
   onCreated: (jobId?: string) => void;
   onError: (msg: string) => void;
+  initialData?: InitialJobData;
 }
 
 export default function CreateJobModal({
   onClose,
   onCreated,
   onError,
+  initialData,
 }: CreateJobModalProps) {
   const [form, setForm] = useState({
-    githubOwner: "BMO-Prod",
-    githubRepo: "",
-    githubBranch: "master",
+    githubOwner: initialData?.githubOwner ?? "BMO-Prod",
+    githubRepo: initialData?.githubRepo ?? "",
+    githubBranch: initialData?.githubBranch ?? "master",
     dedupKey: "",
-    reviewJobType: "",
-    dependencyContext: "",
+    reviewJobType: initialData?.reviewJobType ?? "",
+    dependencyContext: initialData?.dependencyContext ?? "",
   });
-  const [dependentRepos, setDependentRepos] = useState<DependentRepo[]>([]);
+  const [dependentRepos, setDependentRepos] = useState<DependentRepo[]>(
+    initialData?.dependentRepos ?? [],
+  );
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [submitting, setSubmitting] = useState(false);
 

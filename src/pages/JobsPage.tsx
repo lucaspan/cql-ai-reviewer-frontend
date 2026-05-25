@@ -39,6 +39,7 @@ export default function JobsPage() {
 
   // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFromJob, setCreateFromJob] = useState<Partial<GithubReviewJob> | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
 
   // Job detail modal
@@ -378,6 +379,13 @@ export default function JobsPage() {
                           </button>
                         )}
                         <button
+                          className="action-btn action-btn--clone"
+                          title="Create from this job"
+                          onClick={() => setCreateFromJob(job)}
+                        >
+                          ⧉
+                        </button>
+                        <button
                           className="action-btn action-btn--danger"
                           title="Delete Job"
                           onClick={() => handleDelete(job.id!)}
@@ -434,11 +442,15 @@ export default function JobsPage() {
         />
       )}
 
-      {showCreateModal && (
+      {(showCreateModal || createFromJob) && (
         <CreateJobModal
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setCreateFromJob(null);
+          }}
           onCreated={(jobId) => {
             setShowCreateModal(false);
+            setCreateFromJob(null);
             fetchJobs();
             showToast(
               `Job created${jobId ? `: ${jobId.slice(0, 8)}…` : ""}`,
@@ -446,6 +458,18 @@ export default function JobsPage() {
             );
           }}
           onError={(msg) => showToast(msg, "error")}
+          initialData={
+            createFromJob
+              ? {
+                  githubOwner: createFromJob.githubOwner,
+                  githubRepo: createFromJob.githubRepo,
+                  githubBranch: createFromJob.githubBranch,
+                  reviewJobType: createFromJob.reviewJobType,
+                  dependentRepos: (createFromJob.requestPayload as any)?.dependentRepos,
+                  dependencyContext: (createFromJob.requestPayload as any)?.dependencyContext,
+                }
+              : undefined
+          }
         />
       )}
 

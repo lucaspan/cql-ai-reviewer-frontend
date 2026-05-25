@@ -362,6 +362,9 @@
 .action-btn--followup:hover {
   background: #ede9fe;
 }
+.action-btn--clone:hover {
+  background: #e0f2fe;
+}
 .action-btn--danger:hover {
   background: #fee2e2;
 }
