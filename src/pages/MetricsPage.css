@@ -1,0 +1,117 @@
+.metrics-state {
+  text-align: center;
+  padding: 72px;
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.metrics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.metrics-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.metrics-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f0f0f3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metrics-card__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.metrics-card__label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.metrics-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f0f0f3;
+  overflow: hidden;
+}
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.metrics-table thead {
+  background: #f9fafb;
+}
+
+.metrics-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #f0f0f3;
+}
+
+.metrics-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #f9fafb;
+  color: #374151;
+}
+
+.metrics-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.metrics-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: #9ca3af;
+}
+
+.metrics-repo {
+  max-width: 200px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.metrics-model {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.metrics-cache {
+  color: #059669;
+  font-weight: 500;
+}
+
+.metrics-cost {
+  font-weight: 600;
+  font-family: ui-monospace, "SF Mono", monospace;
+}

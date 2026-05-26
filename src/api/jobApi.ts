@@ -54,7 +54,8 @@ export async function getJobs(
   if (params.githubRepo) query.set("githubRepo", params.githubRepo);
   if (params.githubBranch) query.set("githubBranch", params.githubBranch);
   if (params.dedupKey) query.set("dedupKey", params.dedupKey);
-  query.set("includeResults", params.includeResults ? "true" : "false");
+  if (params.includeResults) query.set("includeResults", "true");
+  if (params.includeMetrics) query.set("includeMetrics", "true");
 
   const qs = query.toString();
   const res = await apiFetch<Partial<GithubReviewJob>[]>(`/job?${qs}`);

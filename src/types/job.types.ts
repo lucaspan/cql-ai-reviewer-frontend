@@ -41,6 +41,17 @@ export interface GetJobsParams {
   githubBranch?: string;
   dedupKey?: string;
   includeResults?: boolean;
+  includeMetrics?: boolean;
+}
+
+export interface ReviewMetrics {
+  model: string;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalCost: number;
 }
 
 export interface DependentRepo {
