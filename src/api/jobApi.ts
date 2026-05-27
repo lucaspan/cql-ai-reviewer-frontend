@@ -10,6 +10,12 @@ import type {
   FollowUpResult,
   ReviewJobType,
   ReviewJobTypeVersion,
+  IssueJobRow,
+  IssueDetailRow,
+  MdJobRow,
+  MdDetailRow,
+  MdLabelRow,
+  MdAudienceRow,
 } from "../types/job.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
@@ -237,5 +243,37 @@ export async function updateSetting(
       body: JSON.stringify({ value }),
     },
   );
+  return res.data;
+}
+
+// --- Report API ---
+
+export async function getIssueJobView(): Promise<IssueJobRow[]> {
+  const res = await apiFetch<IssueJobRow[]>("/report/issue-job");
+  return res.data;
+}
+
+export async function getIssueDetailView(): Promise<IssueDetailRow[]> {
+  const res = await apiFetch<IssueDetailRow[]>("/report/issue-detail");
+  return res.data;
+}
+
+export async function getMdJobView(): Promise<MdJobRow[]> {
+  const res = await apiFetch<MdJobRow[]>("/report/md-job");
+  return res.data;
+}
+
+export async function getMdDetailView(): Promise<MdDetailRow[]> {
+  const res = await apiFetch<MdDetailRow[]>("/report/md-detail");
+  return res.data;
+}
+
+export async function getMdLabelView(): Promise<MdLabelRow[]> {
+  const res = await apiFetch<MdLabelRow[]>("/report/md-label");
+  return res.data;
+}
+
+export async function getMdAudienceView(): Promise<MdAudienceRow[]> {
+  const res = await apiFetch<MdAudienceRow[]>("/report/md-audience");
   return res.data;
 }

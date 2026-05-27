@@ -2,10 +2,11 @@ import { useState } from "react";
 import JobsPage from "./pages/JobsPage";
 import JobTypesPage from "./pages/JobTypesPage";
 import MetricsPage from "./pages/MetricsPage";
+import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import "./App.css";
 
-type Page = "jobs" | "job-types" | "metrics" | "settings";
+type Page = "jobs" | "job-types" | "metrics" | "reports" | "settings";
 
 function App() {
   const [page, setPage] = useState<Page>("jobs");
@@ -34,6 +35,18 @@ function App() {
           </header>
           <div className="jobs-page__content">
             <MetricsPage />
+          </div>
+        </div>
+      )}
+      {page === "reports" && (
+        <div className="jobs-page">
+          <header className="jobs-page__header">
+            <span className="jobs-page__logo">⚡</span>
+            <h1 className="jobs-page__title">JDev AI Reviewer</h1>
+            <span className="jobs-page__subtitle">Reports</span>
+          </header>
+          <div className="jobs-page__content">
+            <ReportsPage />
           </div>
         </div>
       )}
@@ -68,6 +81,12 @@ function App() {
           onClick={() => setPage("metrics")}
         >
           Metrics
+        </button>
+        <button
+          className={`app-nav__btn ${page === "reports" ? "app-nav__btn--active" : ""}`}
+          onClick={() => setPage("reports")}
+        >
+          Reports
         </button>
         <button
           className={`app-nav__btn ${page === "settings" ? "app-nav__btn--active" : ""}`}

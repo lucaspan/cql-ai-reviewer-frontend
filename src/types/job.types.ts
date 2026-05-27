@@ -123,3 +123,77 @@ export interface ReviewJobTypeVersion {
   knowledgeFiles: KnowledgeFile[];
   createdAt: string;
 }
+
+export interface IssueJobRow {
+  job_id: string;
+  repo: string;
+  branch: string;
+  commit: string | null;
+  job_type: string;
+  confluence_link: string | null;
+  total_issues: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  created_at: string;
+}
+
+export interface IssueDetailRow {
+  job_id: string;
+  repo: string;
+  branch: string;
+  commit: string | null;
+  job_type: string;
+  title: string;
+  severity: string;
+  category: string;
+  file: string;
+  line_start: number | null;
+  line_end: number | null;
+  evidence: string;
+  why_dangerous: string;
+  failure_mode: string;
+  recommended_fix: string;
+  refactor_direction: string;
+  what_would_confirm: string | null;
+  logging_level: string | null;
+  created_at: string;
+}
+
+export interface MdJobRow {
+  job_id: string;
+  repo: string;
+  branch: string;
+  commit: string | null;
+  job_type: string;
+  confluence_link: string | null;
+  total_md: number;
+  label_breakdown: Record<string, number>;
+  audience_breakdown: Record<string, number>;
+  created_at: string;
+}
+
+export interface MdDetailRow {
+  job_id: string;
+  repo: string;
+  branch: string;
+  commit: string | null;
+  job_type: string;
+  path: string;
+  title: string;
+  description: string;
+  label: string;
+  audience: string;
+  created_at: string;
+}
+
+export interface MdLabelRow {
+  label: string;
+  total_count: number;
+}
+
+export interface MdAudienceRow {
+  audience: string;
+  total_count: number;
+}
