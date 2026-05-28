@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createJob, getJobTypes } from "../api/jobApi";
-import type { ReviewJobType } from "../types/job.types";
+import type { DependentRepo, ReviewJobType } from "../types/job.types";
 import "./Modal.css";
 import "./CreateJobModal.css";
 import "./BatchCreateJobModal.css";
@@ -35,6 +35,8 @@ export default function BatchCreateJobModal({
   const [text, setText] = useState("");
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([]);
+  const [dependentRepos, setDependentRepos] = useState<DependentRepo[]>([]);
+  const [dependencyContext, setDependencyContext] = useState("");
   const [items, setItems] = useState<BatchItem[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -73,6 +75,23 @@ export default function BatchCreateJobModal({
     );
   };
 
+  const addDependentRepo = () => {
+    setDependentRepos((prev) => [
+      ...prev,
+      { githubOwner: "BMO-Prod", githubRepo: "", githubBranch: "master" },
+    ]);
+  };
+
+  const updateDependentRepo = (index: number, field: keyof DependentRepo, value: string) => {
+    setDependentRepos((prev) =>
+      prev.map((repo, i) => (i === index ? { ...repo, [field]: value } : repo)),
+    );
+  };
+
+  const removeDependentRepo = (index: number) => {
+    setDependentRepos((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const totalJobs = parsedLines.length * selectedJobTypes.length;
 
   const handleStart = async () => {
@@ -106,11 +125,16 @@ export default function BatchCreateJobModal({
       );
 
       try {
+        const validDeps = dependentRepos.filter(
+          (d) => d.githubOwner && d.githubRepo && d.githubBranch,
+        );
         const result = await createJob({
           githubOwner: owner,
           githubRepo: item.repo,
           githubBranch: item.branch,
           reviewJobType: item.jobType,
+          dependentRepos: validDeps.length > 0 ? validDeps : undefined,
+          dependencyContext: dependencyContext || undefined,
         });
         if (result.created) {
           ok++;
@@ -212,6 +236,68 @@ export default function BatchCreateJobModal({
                   onChange={(e) => setText(e.target.value)}
                   spellCheck={false}
                 />
+              </div>
+
+              <div className="create-job-section">
+                <div className="create-job-section__header">
+                  <label className="form-label">
+                    Dependent Repositories{" "}
+                    <span className="form-optional">(optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    onClick={addDependentRepo}
+                  >
+                    + Add Repo
+                  </button>
+                </div>
+
+                {dependentRepos.map((dep, i) => (
+                  <div key={i} className="dep-repo-row">
+                    <input
+                      className="form-input"
+                      placeholder="Owner"
+                      value={dep.githubOwner}
+                      onChange={(e) => updateDependentRepo(i, "githubOwner", e.target.value)}
+                    />
+                    <input
+                      className="form-input"
+                      placeholder="Repository"
+                      value={dep.githubRepo}
+                      onChange={(e) => updateDependentRepo(i, "githubRepo", e.target.value)}
+                    />
+                    <input
+                      className="form-input"
+                      placeholder="Branch"
+                      value={dep.githubBranch}
+                      onChange={(e) => updateDependentRepo(i, "githubBranch", e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--danger btn--sm"
+                      onClick={() => removeDependentRepo(i)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+
+                {dependentRepos.length > 0 && (
+                  <div className="form-field" style={{ marginTop: 12 }}>
+                    <label className="form-label">
+                      Dependency Context{" "}
+                      <span className="form-optional">(optional)</span>
+                    </label>
+                    <textarea
+                      className="form-input form-textarea"
+                      placeholder="Describe the relationship between repos..."
+                      value={dependencyContext}
+                      onChange={(e) => setDependencyContext(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                )}
               </div>
 
               {parsedLines.length > 0 && (
