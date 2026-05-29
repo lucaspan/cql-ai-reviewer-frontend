@@ -36,7 +36,6 @@ export default function BatchCreateJobModal({
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([]);
   const [dependentRepos, setDependentRepos] = useState<DependentRepo[]>([]);
-  const [dependencyContext, setDependencyContext] = useState("");
   const [items, setItems] = useState<BatchItem[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -78,7 +77,7 @@ export default function BatchCreateJobModal({
   const addDependentRepo = () => {
     setDependentRepos((prev) => [
       ...prev,
-      { githubOwner: "BMO-Prod", githubRepo: "", githubBranch: "master" },
+      { githubOwner: "BMO-Prod", githubRepo: "", githubBranch: "master", dependencyContext: "" },
     ]);
   };
 
@@ -134,7 +133,6 @@ export default function BatchCreateJobModal({
           githubBranch: item.branch,
           reviewJobType: item.jobType,
           dependentRepos: validDeps.length > 0 ? validDeps : undefined,
-          dependencyContext: dependencyContext || undefined,
         });
         if (result.created) {
           ok++;
@@ -273,6 +271,12 @@ export default function BatchCreateJobModal({
                       value={dep.githubBranch}
                       onChange={(e) => updateDependentRepo(i, "githubBranch", e.target.value)}
                     />
+                    <input
+                      className="form-input"
+                      placeholder="Context (e.g. shared auth lib)"
+                      value={dep.dependencyContext ?? ""}
+                      onChange={(e) => updateDependentRepo(i, "dependencyContext", e.target.value)}
+                    />
                     <button
                       type="button"
                       className="btn btn--danger btn--sm"
@@ -282,22 +286,6 @@ export default function BatchCreateJobModal({
                     </button>
                   </div>
                 ))}
-
-                {dependentRepos.length > 0 && (
-                  <div className="form-field" style={{ marginTop: 12 }}>
-                    <label className="form-label">
-                      Dependency Context{" "}
-                      <span className="form-optional">(optional)</span>
-                    </label>
-                    <textarea
-                      className="form-input form-textarea"
-                      placeholder="Describe the relationship between repos..."
-                      value={dependencyContext}
-                      onChange={(e) => setDependencyContext(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                )}
               </div>
 
               {parsedLines.length > 0 && (

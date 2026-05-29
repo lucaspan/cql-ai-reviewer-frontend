@@ -3,10 +3,11 @@ import JobsPage from "./pages/JobsPage";
 import JobTypesPage from "./pages/JobTypesPage";
 import MetricsPage from "./pages/MetricsPage";
 import ReportsPage from "./pages/ReportsPage";
+import RepoConfigPage from "./pages/RepoConfigPage";
 import SettingsPage from "./pages/SettingsPage";
 import "./App.css";
 
-type Page = "jobs" | "job-types" | "metrics" | "reports" | "settings";
+type Page = "jobs" | "job-types" | "metrics" | "reports" | "repo-config" | "settings";
 
 function App() {
   const [page, setPage] = useState<Page>("jobs");
@@ -50,6 +51,18 @@ function App() {
           </div>
         </div>
       )}
+      {page === "repo-config" && (
+        <div className="jobs-page">
+          <header className="jobs-page__header">
+            <span className="jobs-page__logo">⚡</span>
+            <h1 className="jobs-page__title">JDev AI Reviewer</h1>
+            <span className="jobs-page__subtitle">Repo Config</span>
+          </header>
+          <div className="jobs-page__content">
+            <RepoConfigPage />
+          </div>
+        </div>
+      )}
       {page === "settings" && (
         <div className="jobs-page">
           <header className="jobs-page__header">
@@ -87,6 +100,12 @@ function App() {
           onClick={() => setPage("reports")}
         >
           Reports
+        </button>
+        <button
+          className={`app-nav__btn ${page === "repo-config" ? "app-nav__btn--active" : ""}`}
+          onClick={() => setPage("repo-config")}
+        >
+          Repo Config
         </button>
         <button
           className={`app-nav__btn ${page === "settings" ? "app-nav__btn--active" : ""}`}

@@ -1,0 +1,259 @@
+.rc-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rc-state {
+  text-align: center;
+  padding: 72px;
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.rc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rc-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rc-count {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.rc-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f0f0f3;
+  overflow-x: auto;
+}
+
+.rc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rc-table thead {
+  background: #f9fafb;
+}
+
+.rc-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #f0f0f3;
+  white-space: nowrap;
+}
+
+.rc-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #f9fafb;
+  color: #374151;
+  vertical-align: top;
+}
+
+.rc-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.rc-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: #9ca3af;
+}
+
+.rc-mono {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 12px;
+}
+
+.rc-all {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.rc-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rc-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rc-dep {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+
+.rc-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rc-status--on {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.rc-status--off {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.rc-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Form */
+
+.rc-form {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f0f0f3;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rc-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 12px;
+}
+
+.rc-job-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rc-dep-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 2fr auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.rc-enabled-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.rc-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f3;
+}
+
+/* Ingest form */
+
+.rc-ingest-form {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f0f0f3;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rc-ingest-form-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.rc-ingest-form-hint code {
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.rc-ingest-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Ingest result */
+
+.rc-ingest-result {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f0f0f3;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rc-ingest-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rc-ingest-created {
+  font-weight: 600;
+  color: #065f46;
+}
+
+.rc-ingest-skipped {
+  color: #6b7280;
+}
+
+.rc-ingest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+
+.rc-ingest-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.rc-ingest-item--ok {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.rc-ingest-item--skip {
+  background: #f9fafb;
+  color: #6b7280;
+}

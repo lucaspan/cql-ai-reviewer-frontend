@@ -98,6 +98,24 @@ export default function JobDetailModal({
                 </div>
               </div>
 
+              {(job.requestPayload as any)?.dependentRepos?.length > 0 && (
+                <div className="job-detail-section">
+                  <p className="job-detail-section__title">Dependent Repos</p>
+                  <div className="job-detail-deps">
+                    {((job.requestPayload as any).dependentRepos as any[]).map((dep: any, i: number) => (
+                      <div key={i} className="job-detail-dep">
+                        <span className="job-detail-dep__repo">
+                          {dep.githubOwner}/{dep.githubRepo}@{dep.githubBranch}
+                        </span>
+                        {dep.dependencyContext && (
+                          <span className="job-detail-dep__ctx">{dep.dependencyContext}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {job.publishedLink && (
                 <div className="job-detail-section">
                   <p className="job-detail-section__title">Published Link</p>

@@ -466,7 +466,6 @@ export default function JobsPage() {
                   githubBranch: createFromJob.githubBranch,
                   reviewJobType: createFromJob.reviewJobType,
                   dependentRepos: (createFromJob.requestPayload as any)?.dependentRepos,
-                  dependencyContext: (createFromJob.requestPayload as any)?.dependencyContext,
                 }
               : undefined
           }

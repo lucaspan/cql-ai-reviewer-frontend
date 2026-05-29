@@ -16,6 +16,7 @@ import type {
   MdDetailRow,
   MdLabelRow,
   MdAudienceRow,
+  RepoConfig,
 } from "../types/job.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
@@ -275,5 +276,67 @@ export async function getMdLabelView(): Promise<MdLabelRow[]> {
 
 export async function getMdAudienceView(): Promise<MdAudienceRow[]> {
   const res = await apiFetch<MdAudienceRow[]>("/report/md-audience");
+  return res.data;
+}
+
+// --- Repo Config API ---
+
+export async function getRepoConfigs(): Promise<RepoConfig[]> {
+  const res = await apiFetch<RepoConfig[]>("/repo-config");
+  return res.data;
+}
+
+export async function createRepoConfig(
+  data: Partial<RepoConfig>,
+): Promise<RepoConfig> {
+  const res = await apiFetch<RepoConfig>("/repo-config", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data;
+}
+
+export async function updateRepoConfig(
+  id: string,
+  data: Partial<RepoConfig>,
+): Promise<RepoConfig> {
+  const res = await apiFetch<RepoConfig>(
+    `/repo-config/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    },
+  );
+  return res.data;
+}
+
+export async function deleteRepoConfig(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  const res = await apiFetch<{ deleted: boolean }>(
+    `/repo-config/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
+  return res.data;
+}
+
+// --- Ingestion API ---
+
+export interface IngestResult {
+  created: number;
+  skipped: number;
+  jobs: { repo: string; branch: string; jobType: string; jobId: string }[];
+  skippedRepos: { repo: string; branch: string; jobType: string; reason: string }[];
+}
+
+export async function ingestFromSource(
+  repos?: { githubOwner: string; githubRepo: string; githubBranch: string }[],
+): Promise<IngestResult> {
+  const res = await apiFetch<IngestResult>("/job/ingest-from-source", {
+    method: "POST",
+    body: JSON.stringify(repos ? { repos } : {}),
+  });
   return res.data;
 }

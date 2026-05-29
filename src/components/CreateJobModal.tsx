@@ -10,7 +10,6 @@ interface InitialJobData {
   githubBranch?: string;
   reviewJobType?: string | null;
   dependentRepos?: DependentRepo[];
-  dependencyContext?: string;
 }
 
 interface CreateJobModalProps {
@@ -32,7 +31,6 @@ export default function CreateJobModal({
     githubBranch: initialData?.githubBranch ?? "master",
     dedupKey: "",
     reviewJobType: initialData?.reviewJobType ?? "",
-    dependencyContext: initialData?.dependencyContext ?? "",
   });
   const [dependentRepos, setDependentRepos] = useState<DependentRepo[]>(
     initialData?.dependentRepos ?? [],
@@ -47,7 +45,7 @@ export default function CreateJobModal({
   const addDependentRepo = () => {
     setDependentRepos((prev) => [
       ...prev,
-      { githubOwner: "BMO-Prod", githubRepo: "", githubBranch: "master" },
+      { githubOwner: "BMO-Prod", githubRepo: "", githubBranch: "master", dependencyContext: "" },
     ]);
   };
 
@@ -79,7 +77,6 @@ export default function CreateJobModal({
         dedupKey: form.dedupKey || undefined,
         reviewJobType: form.reviewJobType || undefined,
         dependentRepos: validDeps.length > 0 ? validDeps : undefined,
-        dependencyContext: form.dependencyContext || undefined,
       });
       if (result.created) {
         onCreated(result.jobId);
@@ -218,6 +215,14 @@ export default function CreateJobModal({
                     updateDependentRepo(i, "githubBranch", e.target.value)
                   }
                 />
+                <input
+                  className="form-input"
+                  placeholder="Context (e.g. shared auth lib)"
+                  value={dep.dependencyContext ?? ""}
+                  onChange={(e) =>
+                    updateDependentRepo(i, "dependencyContext", e.target.value)
+                  }
+                />
                 <button
                   type="button"
                   className="btn btn--danger btn--sm"
@@ -227,27 +232,6 @@ export default function CreateJobModal({
                 </button>
               </div>
             ))}
-
-            {dependentRepos.length > 0 && (
-              <div className="form-field" style={{ marginTop: 12 }}>
-                <label className="form-label">
-                  Dependency Context{" "}
-                  <span className="form-optional">(optional)</span>
-                </label>
-                <textarea
-                  className="form-input form-textarea"
-                  placeholder="Describe the relationship between repos..."
-                  value={form.dependencyContext}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      dependencyContext: e.target.value,
-                    }))
-                  }
-                  rows={3}
-                />
-              </div>
-            )}
           </div>
 
           <div className="modal__footer">

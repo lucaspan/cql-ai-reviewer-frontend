@@ -58,6 +58,7 @@ export interface DependentRepo {
   githubOwner: string;
   githubRepo: string;
   githubBranch: string;
+  dependencyContext?: string;
 }
 
 export interface CreateJobParams {
@@ -67,7 +68,6 @@ export interface CreateJobParams {
   dedupKey?: string;
   reviewJobType?: string;
   dependentRepos?: DependentRepo[];
-  dependencyContext?: string;
 }
 
 export interface ProcessJobResult {
@@ -196,4 +196,24 @@ export interface MdLabelRow {
 export interface MdAudienceRow {
   audience: string;
   total_count: number;
+}
+
+export interface DependentRepoConfig {
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch: string;
+  dependencyContext: string;
+}
+
+export interface RepoConfig {
+  id: string;
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch: string | null;
+  jobTypes: string[];
+  dependentRepos: DependentRepoConfig[] | null;
+  confluenceEmails: string[] | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
