@@ -463,3 +463,59 @@ code.branch {
   background: #3b82f6;
   color: white;
 }
+
+/* ── Source Ingestion ─────────────────────────────────────────────────────── */
+.source-ingestion {
+  background: var(--card-bg, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.source-ingestion__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.source-ingestion__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-secondary, #94a3b8);
+  white-space: nowrap;
+}
+
+.source-ingestion__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.source-ingestion__preview {
+  margin-top: 14px;
+}
+
+.source-ingestion__count {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0 0 8px;
+}
+
+.source-ingestion__result {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: var(--text, #e2e8f0);
+}
+
+.source-ingestion__result details {
+  margin-top: 8px;
+}
+
+.source-ingestion__result summary {
+  cursor: pointer;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 6px;
+}

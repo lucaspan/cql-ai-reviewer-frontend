@@ -39,7 +39,8 @@ export default function JobsPage() {
 
   // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createFromJob, setCreateFromJob] = useState<Partial<GithubReviewJob> | null>(null);
+  const [createFromJob, setCreateFromJob] =
+    useState<Partial<GithubReviewJob> | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
 
   // Job detail modal
@@ -465,7 +466,8 @@ export default function JobsPage() {
                   githubRepo: createFromJob.githubRepo,
                   githubBranch: createFromJob.githubBranch,
                   reviewJobType: createFromJob.reviewJobType,
-                  dependentRepos: (createFromJob.requestPayload as any)?.dependentRepos,
+                  dependentRepos: (createFromJob.requestPayload as any)
+                    ?.dependentRepos,
                 }
               : undefined
           }

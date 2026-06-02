@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { GithubReviewJob } from "../types/job.types";
+import { publishJob } from "../api/jobApi";
 import "./Modal.css";
 import "./JobDetailModal.css";
 
@@ -43,8 +45,41 @@ export default function JobDetailModal({
   loading,
   onClose,
 }: JobDetailModalProps) {
+  const [republishing, setRepublishing] = useState(false);
+  const [republishResult, setRepublishResult] = useState<{
+    success: boolean;
+    link?: string;
+    error?: string;
+  } | null>(null);
+
+  const handleRepublish = async () => {
+    if (!job?.id) return;
+    setRepublishing(true);
+    setRepublishResult(null);
+    try {
+      const result = await publishJob(job.id);
+      setRepublishResult({
+        success: result.published,
+        link: result.link,
+        error: result.error,
+      });
+    } catch (e: unknown) {
+      setRepublishResult({
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setRepublishing(false);
+    }
+  };
+
   const resultsJson =
     job?.results != null ? JSON.stringify(job.results, null, 2) : null;
+
+  const payloadJson =
+    job?.requestPayload != null
+      ? JSON.stringify(job.requestPayload, null, 2)
+      : null;
 
   const handleCopyResults = () => {
     if (resultsJson) navigator.clipboard.writeText(resultsJson);
@@ -53,7 +88,7 @@ export default function JobDetailModal({
   const jobTypeVersionDisplay =
     job?.reviewJobType && job?.reviewJobTypeVersion != null
       ? `${job.reviewJobType} v${job.reviewJobTypeVersion}`
-      : job?.reviewJobType ?? null;
+      : (job?.reviewJobType ?? null);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -93,7 +128,11 @@ export default function JobDetailModal({
                   <Field label="Branch" value={job.githubBranch} mono />
                   <Field label="Commit" value={job.githubCommit} mono />
                   <Field label="Status" value={job.status} />
-                  <Field label="Job Type / Version" value={jobTypeVersionDisplay} mono />
+                  <Field
+                    label="Job Type / Version"
+                    value={jobTypeVersionDisplay}
+                    mono
+                  />
                   {job.error && <Field label="Error" value={job.error} full />}
                 </div>
               </div>
@@ -102,16 +141,21 @@ export default function JobDetailModal({
                 <div className="job-detail-section">
                   <p className="job-detail-section__title">Dependent Repos</p>
                   <div className="job-detail-deps">
-                    {((job.requestPayload as any).dependentRepos as any[]).map((dep: any, i: number) => (
-                      <div key={i} className="job-detail-dep">
-                        <span className="job-detail-dep__repo">
-                          {dep.githubOwner}/{dep.githubRepo}@{dep.githubBranch}
-                        </span>
-                        {dep.dependencyContext && (
-                          <span className="job-detail-dep__ctx">{dep.dependencyContext}</span>
-                        )}
-                      </div>
-                    ))}
+                    {((job.requestPayload as any).dependentRepos as any[]).map(
+                      (dep: any, i: number) => (
+                        <div key={i} className="job-detail-dep">
+                          <span className="job-detail-dep__repo">
+                            {dep.githubOwner}/{dep.githubRepo}@
+                            {dep.githubBranch}
+                          </span>
+                          {dep.dependencyContext && (
+                            <span className="job-detail-dep__ctx">
+                              {dep.dependencyContext}
+                            </span>
+                          )}
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -129,6 +173,43 @@ export default function JobDetailModal({
                       {job.publishedLink}
                     </a>
                   </div>
+                </div>
+              )}
+
+              {job.status === "COMPLETED" && (
+                <div className="job-detail-section">
+                  <div className="results-toolbar">
+                    <span className="results-toolbar__label">Confluence</span>
+                    <button
+                      className="btn btn--secondary btn--sm"
+                      onClick={handleRepublish}
+                      disabled={republishing}
+                    >
+                      {republishing ? "Publishing…" : "Republish to Confluence"}
+                    </button>
+                  </div>
+                  {republishResult && (
+                    <div
+                      className={`results-toolbar__status ${republishResult.success ? "results-toolbar__status--ok" : "results-toolbar__status--err"}`}
+                    >
+                      {republishResult.success ? (
+                        <>
+                          Published.{" "}
+                          {republishResult.link && (
+                            <a
+                              href={republishResult.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              View page
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        `Failed: ${republishResult.error ?? "unknown error"}`
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -152,6 +233,25 @@ export default function JobDetailModal({
                     }
                   />
                 </div>
+              </div>
+
+              <div className="job-detail-section">
+                <div className="results-toolbar">
+                  <span className="results-toolbar__label">Payload</span>
+                  {payloadJson && (
+                    <button
+                      className="btn btn--secondary btn--sm"
+                      onClick={() => navigator.clipboard.writeText(payloadJson)}
+                    >
+                      Copy JSON
+                    </button>
+                  )}
+                </div>
+                {payloadJson ? (
+                  <pre className="results-json">{payloadJson}</pre>
+                ) : (
+                  <div className="results-empty">No payload</div>
+                )}
               </div>
 
               <div className="job-detail-section">

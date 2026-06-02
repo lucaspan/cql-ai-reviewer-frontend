@@ -171,9 +171,7 @@ export async function updateJobType(
   return res.data;
 }
 
-export async function deleteJobType(
-  id: string,
-): Promise<{ deleted: boolean }> {
+export async function deleteJobType(id: string): Promise<{ deleted: boolean }> {
   const res = await apiFetch<{ deleted: boolean }>(
     `/job-type/${encodeURIComponent(id)}`,
     {
@@ -324,19 +322,52 @@ export async function deleteRepoConfig(
 
 // --- Ingestion API ---
 
+export type SourceRepo = {
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch: string;
+  payload?: Record<string, unknown>;
+};
+
 export interface IngestResult {
   created: number;
   skipped: number;
   jobs: { repo: string; branch: string; jobType: string; jobId: string }[];
-  skippedRepos: { repo: string; branch: string; jobType: string; reason: string }[];
+  skippedRepos: {
+    repo: string;
+    branch: string;
+    jobType: string;
+    reason: string;
+  }[];
 }
 
+export async function getSourceRepos(): Promise<SourceRepo[]> {
+  const res = await apiFetch<SourceRepo[]>("/job/source-repos");
+  return res.data;
+}
+
+/**
+ * Ingest repos and create jobs.
+ * - Pass no `repos` (or undefined) to ingest directly from the external source query (no override).
+ * - Pass an explicit `repos` array to use those repos instead of the source query (override).
+ */
 export async function ingestFromSource(
-  repos?: { githubOwner: string; githubRepo: string; githubBranch: string }[],
+  repos?: SourceRepo[],
 ): Promise<IngestResult> {
   const res = await apiFetch<IngestResult>("/job/ingest-from-source", {
     method: "POST",
-    body: JSON.stringify(repos ? { repos } : {}),
+    body: JSON.stringify(repos && repos.length > 0 ? { repos } : {}),
   });
+  return res.data;
+}
+
+export async function publishJob(
+  id: string,
+): Promise<{ published: boolean; link?: string; error?: string }> {
+  const res = await apiFetch<{
+    published: boolean;
+    link?: string;
+    error?: string;
+  }>(`/job/${encodeURIComponent(id)}/publish`, { method: "POST" });
   return res.data;
 }

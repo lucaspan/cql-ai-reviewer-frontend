@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { getSetting, updateSetting, getJobTypes } from "../api/jobApi";
+import {
+  getSetting,
+  updateSetting,
+  getJobTypes,
+  getSourceRepos,
+} from "../api/jobApi";
 import type { ReviewJobType } from "../types/job.types";
 import "./SettingsPage.css";
 
@@ -14,20 +19,37 @@ interface JobCreationSetting {
   defaultJobTypes: string[];
   dedupDays: number;
   defaultConfluenceEmails: string[];
+  sourceQueryLimit: number;
+  sourceQueryRecentDays: number;
+  sourceQueryPodDomains: string[];
 }
 
 export default function SettingsPage() {
   const [setting, setSetting] = useState<JobSchedulerSetting | null>(null);
-  const [creationSetting, setCreationSetting] = useState<JobCreationSetting | null>(null);
+  const [creationSetting, setCreationSetting] =
+    useState<JobCreationSetting | null>(null);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [sourceRepos, setSourceRepos] = useState<
+    | {
+        githubOwner: string;
+        githubRepo: string;
+        githubBranch: string;
+        payload?: Record<string, unknown>;
+      }[]
+    | null
+  >(null);
+  const [sourceReposLoading, setSourceReposLoading] = useState(false);
+  const [sourceReposError, setSourceReposError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
-    getJobTypes().then(setJobTypes).catch(() => {});
+    getJobTypes()
+      .then(setJobTypes)
+      .catch(() => {});
   }, []);
 
   const loadSettings = async () => {
@@ -87,9 +109,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleToggle = (
-    path: "enabled" | "pendingJobCrawlerEnabled",
-  ) => {
+  const handleToggle = (path: "enabled" | "pendingJobCrawlerEnabled") => {
     if (!setting) return;
     const updated = { ...setting, crawlers: { ...setting.crawlers } };
     if (path === "enabled") {
@@ -103,7 +123,9 @@ export default function SettingsPage() {
   const toggleDefaultJobType = (id: string) => {
     if (!creationSetting) return;
     const current = creationSetting.defaultJobTypes;
-    const next = current.includes(id) ? current.filter((t) => t !== id) : [...current, id];
+    const next = current.includes(id)
+      ? current.filter((t) => t !== id)
+      : [...current, id];
     saveCreationSetting({ ...creationSetting, defaultJobTypes: next });
   };
 
@@ -115,7 +137,10 @@ export default function SettingsPage() {
     if (creationSetting.defaultConfluenceEmails.includes(email)) return;
     saveCreationSetting({
       ...creationSetting,
-      defaultConfluenceEmails: [...creationSetting.defaultConfluenceEmails, email],
+      defaultConfluenceEmails: [
+        ...creationSetting.defaultConfluenceEmails,
+        email,
+      ],
     });
     setEmailInput("");
   };
@@ -124,14 +149,51 @@ export default function SettingsPage() {
     if (!creationSetting) return;
     saveCreationSetting({
       ...creationSetting,
-      defaultConfluenceEmails: creationSetting.defaultConfluenceEmails.filter((_, i) => i !== index),
+      defaultConfluenceEmails: creationSetting.defaultConfluenceEmails.filter(
+        (_, i) => i !== index,
+      ),
     });
   };
 
   const [dedupInput, setDedupInput] = useState("");
+  const [podDomainInput, setPodDomainInput] = useState("");
+  const [sourceLimitInput, setSourceLimitInput] = useState("");
+  const [sourceRecentDaysInput, setSourceRecentDaysInput] = useState("");
 
+  const addPodDomain = () => {
+    if (!creationSetting || !podDomainInput.trim()) return;
+    const domain = podDomainInput.trim();
+    if (creationSetting.sourceQueryPodDomains.includes(domain)) return;
+    saveCreationSetting({
+      ...creationSetting,
+      sourceQueryPodDomains: [...creationSetting.sourceQueryPodDomains, domain],
+    });
+    setPodDomainInput("");
+  };
 
+  const removePodDomain = (index: number) => {
+    if (!creationSetting) return;
+    saveCreationSetting({
+      ...creationSetting,
+      sourceQueryPodDomains: creationSetting.sourceQueryPodDomains.filter(
+        (_, i) => i !== index,
+      ),
+    });
+  };
 
+  const handlePreviewSourceRepos = async () => {
+    setSourceReposLoading(true);
+    setSourceReposError(null);
+    setSourceRepos(null);
+    try {
+      const repos = await getSourceRepos();
+      setSourceRepos(repos);
+    } catch (err) {
+      setSourceReposError((err as Error).message);
+    } finally {
+      setSourceReposLoading(false);
+    }
+  };
 
   if (loading) {
     return <div className="settings-state">Loading settings...</div>;
@@ -168,22 +230,26 @@ export default function SettingsPage() {
         </div>
       </div>
 
-
       <div className="settings-card">
         <h3 className="settings-card__title">Job Creation</h3>
         <p className="settings-card__desc">
-          Default settings for job ingestion. Per-repo overrides are in Repo Config.
+          Default settings for job ingestion. Per-repo overrides are in Repo
+          Config.
         </p>
 
         <div className="settings-section">
           <label className="form-label">Default Job Types</label>
-          <p className="settings-hint">Applied when a repo has no matching repo_config entry</p>
+          <p className="settings-hint">
+            Applied when a repo has no matching repo_config entry
+          </p>
           <div className="settings-chips">
             {jobTypes.map((jt) => (
               <label key={jt.id} className="settings-chip">
                 <input
                   type="checkbox"
-                  checked={creationSetting?.defaultJobTypes.includes(jt.id) ?? false}
+                  checked={
+                    creationSetting?.defaultJobTypes.includes(jt.id) ?? false
+                  }
                   onChange={() => toggleDefaultJobType(jt.id)}
                   disabled={saving}
                 />
@@ -195,17 +261,29 @@ export default function SettingsPage() {
 
         <div className="settings-section">
           <label className="form-label">Dedup Window (days)</label>
-          <p className="settings-hint">Skip ingestion if a job for same repo/branch/type was created within this many days</p>
+          <p className="settings-hint">
+            Skip ingestion if a job for same repo/branch/type was created within
+            this many days
+          </p>
           <div className="settings-add-row">
             <input
               className="form-input"
               type="number"
-              min={1}
-              value={dedupInput || (creationSetting?.dedupDays ?? 30)}
+              min={0}
+              value={
+                dedupInput !== ""
+                  ? dedupInput
+                  : (creationSetting?.dedupDays ?? 30)
+              }
               onChange={(e) => setDedupInput(e.target.value)}
               onBlur={() => {
                 const val = parseInt(dedupInput);
-                if (creationSetting && val > 0 && val !== creationSetting.dedupDays) {
+                if (
+                  creationSetting &&
+                  !isNaN(val) &&
+                  val >= 0 &&
+                  val !== creationSetting.dedupDays
+                ) {
                   saveCreationSetting({ ...creationSetting, dedupDays: val });
                 }
                 setDedupInput("");
@@ -216,13 +294,214 @@ export default function SettingsPage() {
         </div>
 
         <div className="settings-section">
+          <label className="form-label">Source Query — Limit</label>
+          <p className="settings-hint">
+            Max number of repos returned from the SonarQube source query
+          </p>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              type="number"
+              min={1}
+              value={
+                sourceLimitInput || (creationSetting?.sourceQueryLimit ?? 200)
+              }
+              onChange={(e) => setSourceLimitInput(e.target.value)}
+              onBlur={() => {
+                const val = parseInt(sourceLimitInput);
+                if (
+                  creationSetting &&
+                  val > 0 &&
+                  val !== creationSetting.sourceQueryLimit
+                ) {
+                  saveCreationSetting({
+                    ...creationSetting,
+                    sourceQueryLimit: val,
+                  });
+                }
+                setSourceLimitInput("");
+              }}
+              style={{ width: 100 }}
+            />
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">Source Query — Recent Days</label>
+          <p className="settings-hint">
+            Only include repos with a SonarQube event within this many days
+          </p>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              type="number"
+              min={1}
+              value={
+                sourceRecentDaysInput ||
+                (creationSetting?.sourceQueryRecentDays ?? 7)
+              }
+              onChange={(e) => setSourceRecentDaysInput(e.target.value)}
+              onBlur={() => {
+                const val = parseInt(sourceRecentDaysInput);
+                if (
+                  creationSetting &&
+                  val > 0 &&
+                  val !== creationSetting.sourceQueryRecentDays
+                ) {
+                  saveCreationSetting({
+                    ...creationSetting,
+                    sourceQueryRecentDays: val,
+                  });
+                }
+                setSourceRecentDaysInput("");
+              }}
+              style={{ width: 100 }}
+            />
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">Source Query — Pod Domains</label>
+          <p className="settings-hint">
+            Only include repos whose pod domain matches one of these values
+          </p>
+          <div className="settings-list">
+            {creationSetting?.sourceQueryPodDomains.map((domain, i) => (
+              <div key={i} className="settings-list-item">
+                <code>{domain}</code>
+                <button
+                  className="btn btn--danger btn--sm"
+                  onClick={() => removePodDomain(i)}
+                  disabled={saving}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              placeholder="e.g. Contact Centre"
+              value={podDomainInput}
+              onChange={(e) => setPodDomainInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addPodDomain()}
+            />
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={addPodDomain}
+              disabled={saving || !podDomainInput.trim()}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">Preview Source Repos</label>
+          <p className="settings-hint">
+            Dry-run the source query with current settings to verify results
+            before ingesting
+          </p>
+          <div className="settings-add-row">
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={handlePreviewSourceRepos}
+              disabled={sourceReposLoading}
+            >
+              {sourceReposLoading ? "Loading…" : "Fetch Preview"}
+            </button>
+          </div>
+          {sourceReposError && (
+            <div className="settings-error">{sourceReposError}</div>
+          )}
+          {sourceRepos !== null && (
+            <div style={{ marginTop: 8 }}>
+              <p className="settings-hint">
+                {sourceRepos.length} repo(s) returned
+              </p>
+              <div style={{ maxHeight: 300, overflowY: "auto", fontSize: 12 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "4px 8px",
+                          borderBottom: "1px solid #ddd",
+                        }}
+                      >
+                        Repo
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "4px 8px",
+                          borderBottom: "1px solid #ddd",
+                        }}
+                      >
+                        Branch
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "4px 8px",
+                          borderBottom: "1px solid #ddd",
+                        }}
+                      >
+                        Pod Domain
+                      </th>
+                      <th
+                        style={{
+                          textAlign: "left",
+                          padding: "4px 8px",
+                          borderBottom: "1px solid #ddd",
+                        }}
+                      >
+                        SQ Event Date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sourceRepos.map((r, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: "4px 8px" }}>{r.githubRepo}</td>
+                        <td style={{ padding: "4px 8px" }}>{r.githubBranch}</td>
+                        <td style={{ padding: "4px 8px" }}>
+                          {(r.payload as any)?.podDomain ?? "—"}
+                        </td>
+                        <td style={{ padding: "4px 8px" }}>
+                          {(r.payload as any)?.sqEventCreatedAt
+                            ? new Date(
+                                (r.payload as any).sqEventCreatedAt,
+                              ).toLocaleDateString()
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="settings-section">
           <label className="form-label">Default Confluence Viewer Emails</label>
-          <p className="settings-hint">Added as viewers on all published Confluence pages</p>
+          <p className="settings-hint">
+            Added as viewers on all published Confluence pages
+          </p>
           <div className="settings-list">
             {creationSetting?.defaultConfluenceEmails.map((email, i) => (
               <div key={i} className="settings-list-item">
                 <code>{email}</code>
-                <button className="btn btn--danger btn--sm" onClick={() => removeEmail(i)} disabled={saving}>✕</button>
+                <button
+                  className="btn btn--danger btn--sm"
+                  onClick={() => removeEmail(i)}
+                  disabled={saving}
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
@@ -234,7 +513,11 @@ export default function SettingsPage() {
               onChange={(e) => setEmailInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addEmail()}
             />
-            <button className="btn btn--secondary btn--sm" onClick={addEmail} disabled={saving || !emailInput.trim()}>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={addEmail}
+              disabled={saving || !emailInput.trim()}
+            >
               Add
             </button>
           </div>

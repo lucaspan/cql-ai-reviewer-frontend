@@ -6,9 +6,14 @@ import {
   deleteRepoConfig,
   getJobTypes,
   ingestFromSource,
+  getSourceRepos,
 } from "../api/jobApi";
-import type { IngestResult } from "../api/jobApi";
-import type { RepoConfig, DependentRepoConfig, ReviewJobType } from "../types/job.types";
+import type { IngestResult, SourceRepo } from "../api/jobApi";
+import type {
+  RepoConfig,
+  DependentRepoConfig,
+  ReviewJobType,
+} from "../types/job.types";
 import "./RepoConfigPage.css";
 
 export default function RepoConfigPage() {
@@ -22,9 +27,16 @@ export default function RepoConfigPage() {
   const [showIngestForm, setShowIngestForm] = useState(false);
   const [ingestText, setIngestText] = useState("");
 
+  // Source DB preview
+  const [sourceRepos, setSourceRepos] = useState<SourceRepo[] | null>(null);
+  const [sourceReposLoading, setSourceReposLoading] = useState(false);
+  const [sourceIngestLoading, setSourceIngestLoading] = useState(false);
+
   useEffect(() => {
     load();
-    getJobTypes().then(setJobTypes).catch(() => {});
+    getJobTypes()
+      .then(setJobTypes)
+      .catch(() => {});
   }, []);
 
   const load = async () => {
@@ -43,11 +55,21 @@ export default function RepoConfigPage() {
     setConfigs((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const handleIngest = async (manualRepos?: { githubOwner: string; githubRepo: string; githubBranch: string }[]) => {
+  const handleIngest = async (
+    manualRepos?: {
+      githubOwner: string;
+      githubRepo: string;
+      githubBranch: string;
+    }[],
+  ) => {
     setIngesting(true);
     setIngestResult(null);
     try {
-      let repos: { githubOwner: string; githubRepo: string; githubBranch: string }[];
+      let repos: {
+        githubOwner: string;
+        githubRepo: string;
+        githubBranch: string;
+      }[];
       if (manualRepos && manualRepos.length > 0) {
         repos = manualRepos;
       } else {
@@ -68,6 +90,45 @@ export default function RepoConfigPage() {
     }
   };
 
+  const handlePreviewSourceRepos = async () => {
+    setSourceRepos(null);
+    setSourceReposLoading(true);
+    try {
+      setSourceRepos(await getSourceRepos());
+    } catch {
+      // silent
+    } finally {
+      setSourceReposLoading(false);
+    }
+  };
+
+  /** Ingest without override — backend runs the source DB query itself */
+  const handleIngestFromSource = async () => {
+    setSourceIngestLoading(true);
+    setIngestResult(null);
+    try {
+      setIngestResult(await ingestFromSource());
+    } catch {
+      // silent
+    } finally {
+      setSourceIngestLoading(false);
+    }
+  };
+
+  /** Ingest previewed repos as override */
+  const handleIngestPreviewed = async () => {
+    if (!sourceRepos || sourceRepos.length === 0) return;
+    setSourceIngestLoading(true);
+    setIngestResult(null);
+    try {
+      setIngestResult(await ingestFromSource(sourceRepos));
+    } catch {
+      // silent
+    } finally {
+      setSourceIngestLoading(false);
+    }
+  };
+
   const parseIngestText = (text: string) => {
     return text
       .split("\n")
@@ -78,9 +139,17 @@ export default function RepoConfigPage() {
         const [ownerRepo, branch] = parts;
         const slashIdx = ownerRepo.indexOf("/");
         if (slashIdx > 0) {
-          return { githubOwner: ownerRepo.slice(0, slashIdx), githubRepo: ownerRepo.slice(slashIdx + 1), githubBranch: branch || "master" };
+          return {
+            githubOwner: ownerRepo.slice(0, slashIdx),
+            githubRepo: ownerRepo.slice(slashIdx + 1),
+            githubBranch: branch || "master",
+          };
         }
-        return { githubOwner: "BMO-Prod", githubRepo: ownerRepo, githubBranch: branch || "master" };
+        return {
+          githubOwner: "BMO-Prod",
+          githubRepo: ownerRepo,
+          githubBranch: branch || "master",
+        };
       });
   };
 
@@ -91,8 +160,37 @@ export default function RepoConfigPage() {
   return (
     <div className="rc-content">
       <div className="rc-toolbar">
-        <span className="rc-count">{configs.length} repo config{configs.length !== 1 ? "s" : ""}</span>
+        <span className="rc-count">
+          {configs.length} repo config{configs.length !== 1 ? "s" : ""}
+        </span>
         <div className="rc-toolbar-actions">
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={handlePreviewSourceRepos}
+            disabled={sourceReposLoading || sourceIngestLoading || ingesting}
+          >
+            {sourceReposLoading ? "Loading…" : "Preview Source Repos"}
+          </button>
+          <button
+            className="btn btn--warning btn--sm"
+            onClick={handleIngestFromSource}
+            disabled={sourceIngestLoading || sourceReposLoading || ingesting}
+            title="Ingest directly from source DB query (no override)"
+          >
+            {sourceIngestLoading ? "Ingesting…" : "Ingest from Source"}
+          </button>
+          {sourceRepos && sourceRepos.length > 0 && (
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={handleIngestPreviewed}
+              disabled={sourceIngestLoading || sourceReposLoading || ingesting}
+              title="Ingest using the previewed repos list as override"
+            >
+              {sourceIngestLoading
+                ? "Ingesting…"
+                : `Ingest Previewed (${sourceRepos.length})`}
+            </button>
+          )}
           <button
             className="btn btn--secondary btn--sm"
             onClick={() => setShowIngestForm((v) => !v)}
@@ -100,7 +198,10 @@ export default function RepoConfigPage() {
           >
             {ingesting ? "Running..." : "Run Ingestion"}
           </button>
-          <button className="btn btn--primary btn--sm" onClick={() => setCreating(true)}>
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={() => setCreating(true)}
+          >
             + Add Config
           </button>
         </div>
@@ -109,7 +210,8 @@ export default function RepoConfigPage() {
       {showIngestForm && !ingesting && (
         <div className="rc-ingest-form">
           <p className="rc-ingest-form-hint">
-            Run all enabled configs, or enter repos manually (one per line: <code>owner/repo branch</code> or <code>repo branch</code>)
+            Run all enabled configs, or enter repos manually (one per line:{" "}
+            <code>owner/repo branch</code> or <code>repo branch</code>)
           </p>
           <textarea
             className="batch-textarea"
@@ -122,11 +224,22 @@ export default function RepoConfigPage() {
           <div className="rc-ingest-form-actions">
             <button
               className="btn btn--primary btn--sm"
-              onClick={() => handleIngest(ingestText.trim() ? parseIngestText(ingestText) : undefined)}
+              onClick={() =>
+                handleIngest(
+                  ingestText.trim() ? parseIngestText(ingestText) : undefined,
+                )
+              }
             >
-              {ingestText.trim() ? `Ingest ${parseIngestText(ingestText).length} repo(s)` : `Ingest ${configs.filter((c) => c.enabled).length} enabled config(s)`}
+              {ingestText.trim()
+                ? `Ingest ${parseIngestText(ingestText).length} repo(s)`
+                : `Ingest ${configs.filter((c) => c.enabled).length} enabled config(s)`}
             </button>
-            <button className="btn btn--secondary btn--sm" onClick={() => setShowIngestForm(false)}>Cancel</button>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => setShowIngestForm(false)}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -134,14 +247,26 @@ export default function RepoConfigPage() {
       {ingestResult && (
         <div className="rc-ingest-result">
           <div className="rc-ingest-summary">
-            <span className="rc-ingest-created">{ingestResult.created} created</span>
-            <span className="rc-ingest-skipped">{ingestResult.skipped} skipped</span>
-            <button className="btn btn--secondary btn--sm" onClick={() => setIngestResult(null)}>Dismiss</button>
+            <span className="rc-ingest-created">
+              {ingestResult.created} created
+            </span>
+            <span className="rc-ingest-skipped">
+              {ingestResult.skipped} skipped
+            </span>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => setIngestResult(null)}
+            >
+              Dismiss
+            </button>
           </div>
           {ingestResult.jobs.length > 0 && (
             <div className="rc-ingest-list">
               {ingestResult.jobs.map((j) => (
-                <div key={j.jobId} className="rc-ingest-item rc-ingest-item--ok">
+                <div
+                  key={j.jobId}
+                  className="rc-ingest-item rc-ingest-item--ok"
+                >
                   {j.repo}/{j.branch} — {j.jobType}
                 </div>
               ))}
@@ -173,7 +298,10 @@ export default function RepoConfigPage() {
             setCreating(false);
             load();
           }}
-          onCancel={() => { setEditing(null); setCreating(false); }}
+          onCancel={() => {
+            setEditing(null);
+            setCreating(false);
+          }}
         />
       )}
 
@@ -193,24 +321,35 @@ export default function RepoConfigPage() {
           </thead>
           <tbody>
             {configs.length === 0 && (
-              <tr><td colSpan={8} className="rc-empty">No repo configs</td></tr>
+              <tr>
+                <td colSpan={8} className="rc-empty">
+                  No repo configs
+                </td>
+              </tr>
             )}
             {configs.map((cfg) => (
               <tr key={cfg.id}>
                 <td>{cfg.githubOwner}</td>
                 <td className="rc-mono">{cfg.githubRepo}</td>
-                <td>{cfg.githubBranch ?? <span className="rc-all">all</span>}</td>
+                <td>
+                  {cfg.githubBranch ?? <span className="rc-all">all</span>}
+                </td>
                 <td>
                   <div className="rc-pills">
                     {cfg.jobTypes.map((jt) => (
-                      <span key={jt} className="rc-pill">{jt}</span>
+                      <span key={jt} className="rc-pill">
+                        {jt}
+                      </span>
                     ))}
                   </div>
                 </td>
                 <td>
                   {cfg.dependentRepos && cfg.dependentRepos.length > 0
                     ? cfg.dependentRepos.map((d) => (
-                        <div key={`${d.githubRepo}-${d.githubBranch}`} className="rc-dep">
+                        <div
+                          key={`${d.githubRepo}-${d.githubBranch}`}
+                          className="rc-dep"
+                        >
                           {d.githubRepo}:{d.githubBranch}
                         </div>
                       ))
@@ -218,14 +357,26 @@ export default function RepoConfigPage() {
                 </td>
                 <td>{cfg.confluenceEmails?.length ?? 0}</td>
                 <td>
-                  <span className={`rc-status ${cfg.enabled ? "rc-status--on" : "rc-status--off"}`}>
+                  <span
+                    className={`rc-status ${cfg.enabled ? "rc-status--on" : "rc-status--off"}`}
+                  >
                     {cfg.enabled ? "On" : "Off"}
                   </span>
                 </td>
                 <td>
                   <div className="rc-actions">
-                    <button className="btn btn--secondary btn--sm" onClick={() => setEditing(cfg)}>Edit</button>
-                    <button className="btn btn--danger btn--sm" onClick={() => handleDelete(cfg.id)}>Del</button>
+                    <button
+                      className="btn btn--secondary btn--sm"
+                      onClick={() => setEditing(cfg)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn--danger btn--sm"
+                      onClick={() => handleDelete(cfg.id)}
+                    >
+                      Del
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -256,7 +407,9 @@ function RepoConfigForm({
     confluenceEmails: config?.confluenceEmails?.join(", ") ?? "",
     enabled: config?.enabled ?? true,
   });
-  const [deps, setDeps] = useState<DependentRepoConfig[]>(config?.dependentRepos ?? []);
+  const [deps, setDeps] = useState<DependentRepoConfig[]>(
+    config?.dependentRepos ?? [],
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const toggleJobType = (id: string) => {
@@ -269,11 +422,25 @@ function RepoConfigForm({
   };
 
   const addDep = () => {
-    setDeps((prev) => [...prev, { githubOwner: "BMO-Prod", githubRepo: "", githubBranch: "master", dependencyContext: "" }]);
+    setDeps((prev) => [
+      ...prev,
+      {
+        githubOwner: "BMO-Prod",
+        githubRepo: "",
+        githubBranch: "master",
+        dependencyContext: "",
+      },
+    ]);
   };
 
-  const updateDep = (i: number, field: keyof DependentRepoConfig, value: string) => {
-    setDeps((prev) => prev.map((d, idx) => (idx === i ? { ...d, [field]: value } : d)));
+  const updateDep = (
+    i: number,
+    field: keyof DependentRepoConfig,
+    value: string,
+  ) => {
+    setDeps((prev) =>
+      prev.map((d, idx) => (idx === i ? { ...d, [field]: value } : d)),
+    );
   };
 
   const removeDep = (i: number) => {
@@ -307,15 +474,38 @@ function RepoConfigForm({
       <div className="rc-form-grid">
         <div className="form-field">
           <label className="form-label">Owner</label>
-          <input className="form-input" value={form.githubOwner} onChange={(e) => setForm((f) => ({ ...f, githubOwner: e.target.value }))} required />
+          <input
+            className="form-input"
+            value={form.githubOwner}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, githubOwner: e.target.value }))
+            }
+            required
+          />
         </div>
         <div className="form-field">
           <label className="form-label">Repo</label>
-          <input className="form-input" value={form.githubRepo} onChange={(e) => setForm((f) => ({ ...f, githubRepo: e.target.value }))} required />
+          <input
+            className="form-input"
+            value={form.githubRepo}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, githubRepo: e.target.value }))
+            }
+            required
+          />
         </div>
         <div className="form-field">
-          <label className="form-label">Branch <span className="form-optional">(blank = all)</span></label>
-          <input className="form-input" value={form.githubBranch} onChange={(e) => setForm((f) => ({ ...f, githubBranch: e.target.value }))} placeholder="all branches" />
+          <label className="form-label">
+            Branch <span className="form-optional">(blank = all)</span>
+          </label>
+          <input
+            className="form-input"
+            value={form.githubBranch}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, githubBranch: e.target.value }))
+            }
+            placeholder="all branches"
+          />
         </div>
       </div>
 
@@ -324,7 +514,11 @@ function RepoConfigForm({
         <div className="rc-job-types">
           {jobTypes.map((jt) => (
             <label key={jt.id} className="batch-job-type-chip">
-              <input type="checkbox" checked={form.jobTypes.includes(jt.id)} onChange={() => toggleJobType(jt.id)} />
+              <input
+                type="checkbox"
+                checked={form.jobTypes.includes(jt.id)}
+                onChange={() => toggleJobType(jt.id)}
+              />
               <span>{jt.id}</span>
             </label>
           ))}
@@ -334,32 +528,90 @@ function RepoConfigForm({
       <div className="form-field">
         <div className="create-job-section__header">
           <label className="form-label">Dependent Repos</label>
-          <button type="button" className="btn btn--secondary btn--sm" onClick={addDep}>+ Add</button>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={addDep}
+          >
+            + Add
+          </button>
         </div>
         {deps.map((dep, i) => (
           <div key={i} className="rc-dep-row">
-            <input className="form-input" placeholder="Owner" value={dep.githubOwner} onChange={(e) => updateDep(i, "githubOwner", e.target.value)} />
-            <input className="form-input" placeholder="Repo" value={dep.githubRepo} onChange={(e) => updateDep(i, "githubRepo", e.target.value)} />
-            <input className="form-input" placeholder="Branch" value={dep.githubBranch} onChange={(e) => updateDep(i, "githubBranch", e.target.value)} />
-            <input className="form-input" placeholder="Context (e.g. shared auth lib)" value={dep.dependencyContext} onChange={(e) => updateDep(i, "dependencyContext", e.target.value)} />
-            <button type="button" className="btn btn--danger btn--sm" onClick={() => removeDep(i)}>✕</button>
+            <input
+              className="form-input"
+              placeholder="Owner"
+              value={dep.githubOwner}
+              onChange={(e) => updateDep(i, "githubOwner", e.target.value)}
+            />
+            <input
+              className="form-input"
+              placeholder="Repo"
+              value={dep.githubRepo}
+              onChange={(e) => updateDep(i, "githubRepo", e.target.value)}
+            />
+            <input
+              className="form-input"
+              placeholder="Branch"
+              value={dep.githubBranch}
+              onChange={(e) => updateDep(i, "githubBranch", e.target.value)}
+            />
+            <input
+              className="form-input"
+              placeholder="Context (e.g. shared auth lib)"
+              value={dep.dependencyContext}
+              onChange={(e) =>
+                updateDep(i, "dependencyContext", e.target.value)
+              }
+            />
+            <button
+              type="button"
+              className="btn btn--danger btn--sm"
+              onClick={() => removeDep(i)}
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>
 
       <div className="form-field">
-        <label className="form-label">Confluence Emails <span className="form-optional">(comma-separated)</span></label>
-        <input className="form-input" value={form.confluenceEmails} onChange={(e) => setForm((f) => ({ ...f, confluenceEmails: e.target.value }))} placeholder="user@bank.com, team@bank.com" />
+        <label className="form-label">
+          Confluence Emails{" "}
+          <span className="form-optional">(comma-separated)</span>
+        </label>
+        <input
+          className="form-input"
+          value={form.confluenceEmails}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, confluenceEmails: e.target.value }))
+          }
+          placeholder="user@bank.com, team@bank.com"
+        />
       </div>
 
       <label className="rc-enabled-toggle">
-        <input type="checkbox" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
+        <input
+          type="checkbox"
+          checked={form.enabled}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, enabled: e.target.checked }))
+          }
+        />
         <span>Enabled</span>
       </label>
 
       <div className="rc-form-footer">
-        <button type="button" className="btn btn--secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn btn--primary" disabled={submitting || !form.githubRepo || form.jobTypes.length === 0}>
+        <button type="button" className="btn btn--secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={
+            submitting || !form.githubRepo || form.jobTypes.length === 0
+          }
+        >
           {submitting ? "Saving..." : config ? "Update" : "Create"}
         </button>
       </div>
