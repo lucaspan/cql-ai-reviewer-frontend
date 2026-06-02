@@ -60,7 +60,7 @@ export default function ActivityModal({
 
           {!loading && activities.length > 0 && (
             <div className="activity-list">
-              {activities.map((activity, i) => (
+              {[...activities].reverse().map((activity, i) => (
                 <div
                   key={activity.id ?? i}
                   className={itemClass(activity.level)}
