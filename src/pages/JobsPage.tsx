@@ -11,6 +11,7 @@ import {
   deleteJob,
   processJobById,
   getJobActivities,
+  pollSqs,
 } from "../api/jobApi";
 import ActivityModal from "../components/ActivityModal";
 import CreateJobModal from "../components/CreateJobModal";
@@ -272,6 +273,16 @@ export default function JobsPage() {
             </button>
             <button className="btn btn--warning" onClick={handleProcessPending}>
               Process Pending
+            </button>
+            <button
+              className="btn btn--secondary"
+              onClick={async () => {
+                const result = await pollSqs();
+                addToast(`SQS: ${result.created} created, ${result.filtered} filtered`, "info");
+                if (result.created > 0) fetchJobs();
+              }}
+            >
+              Poll SQS
             </button>
             <button
               className="btn btn--secondary"

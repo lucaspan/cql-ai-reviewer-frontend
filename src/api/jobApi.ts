@@ -361,6 +361,18 @@ export async function ingestFromSource(
   return res.data;
 }
 
+export async function pollSqs(): Promise<{
+  processed: number;
+  created: number;
+  filtered: number;
+}> {
+  const res = await apiFetch<{ processed: number; created: number; filtered: number }>(
+    "/job/poll-sqs",
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function publishJob(
   id: string,
 ): Promise<{ published: boolean; link?: string; error?: string }> {

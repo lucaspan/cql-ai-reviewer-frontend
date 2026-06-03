@@ -12,6 +12,11 @@ interface JobSchedulerSetting {
   enabled: boolean;
   crawlers: {
     pendingJobCrawlerEnabled: boolean;
+    sqsPollingEnabled: boolean;
+  };
+  sqsFilter: {
+    branchPatterns: string[];
+    repoPatterns: string[];
   };
 }
 
@@ -109,15 +114,56 @@ export default function SettingsPage() {
     }
   };
 
-  const handleToggle = (path: "enabled" | "pendingJobCrawlerEnabled") => {
+  const handleToggle = (path: "enabled" | "pendingJobCrawlerEnabled" | "sqsPollingEnabled") => {
     if (!setting) return;
-    const updated = { ...setting, crawlers: { ...setting.crawlers } };
+    const updated = { ...setting, crawlers: { ...setting.crawlers }, sqsFilter: { ...setting.sqsFilter } };
     if (path === "enabled") {
       updated.enabled = !updated.enabled;
     } else {
       updated.crawlers[path] = !updated.crawlers[path];
     }
     saveSchedulerSetting(updated);
+  };
+
+  const [branchPatternInput, setBranchPatternInput] = useState("");
+  const [repoPatternInput, setRepoPatternInput] = useState("");
+
+  const addBranchPattern = () => {
+    if (!setting || !branchPatternInput.trim()) return;
+    const pattern = branchPatternInput.trim();
+    if (setting.sqsFilter.branchPatterns.includes(pattern)) return;
+    saveSchedulerSetting({
+      ...setting,
+      sqsFilter: { ...setting.sqsFilter, branchPatterns: [...setting.sqsFilter.branchPatterns, pattern] }
+    });
+    setBranchPatternInput("");
+  };
+
+  const removeBranchPattern = (index: number) => {
+    if (!setting) return;
+    saveSchedulerSetting({
+      ...setting,
+      sqsFilter: { ...setting.sqsFilter, branchPatterns: setting.sqsFilter.branchPatterns.filter((_, i) => i !== index) }
+    });
+  };
+
+  const addRepoPattern = () => {
+    if (!setting || !repoPatternInput.trim()) return;
+    const pattern = repoPatternInput.trim();
+    if (setting.sqsFilter.repoPatterns.includes(pattern)) return;
+    saveSchedulerSetting({
+      ...setting,
+      sqsFilter: { ...setting.sqsFilter, repoPatterns: [...setting.sqsFilter.repoPatterns, pattern] }
+    });
+    setRepoPatternInput("");
+  };
+
+  const removeRepoPattern = (index: number) => {
+    if (!setting) return;
+    saveSchedulerSetting({
+      ...setting,
+      sqsFilter: { ...setting.sqsFilter, repoPatterns: setting.sqsFilter.repoPatterns.filter((_, i) => i !== index) }
+    });
   };
 
   const toggleDefaultJobType = (id: string) => {
@@ -227,6 +273,67 @@ export default function SettingsPage() {
             onChange={() => handleToggle("pendingJobCrawlerEnabled")}
             disabled={saving || !setting?.enabled}
           />
+          <ToggleRow
+            label="SQS Polling"
+            description="Poll SQS queue for new review events (every 10 min)"
+            checked={setting?.crawlers.sqsPollingEnabled ?? false}
+            onChange={() => handleToggle("sqsPollingEnabled")}
+            disabled={saving || !setting?.enabled}
+          />
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">SQS Filter — Branch Patterns (regex)</label>
+          <p className="settings-hint">
+            Only create jobs for branches matching at least one pattern
+          </p>
+          <div className="settings-list">
+            {setting?.sqsFilter.branchPatterns.map((pattern, i) => (
+              <div key={i} className="settings-list-item">
+                <code>{pattern}</code>
+                <button className="btn btn--danger btn--sm" onClick={() => removeBranchPattern(i)} disabled={saving}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              placeholder="^(master|main|develop.*)$"
+              value={branchPatternInput}
+              onChange={(e) => setBranchPatternInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addBranchPattern()}
+            />
+            <button className="btn btn--secondary btn--sm" onClick={addBranchPattern} disabled={saving || !branchPatternInput.trim()}>
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">SQS Filter — Repo Patterns (regex)</label>
+          <p className="settings-hint">
+            Only create jobs for repos matching at least one pattern
+          </p>
+          <div className="settings-list">
+            {setting?.sqsFilter.repoPatterns.map((pattern, i) => (
+              <div key={i} className="settings-list-item">
+                <code>{pattern}</code>
+                <button className="btn btn--danger btn--sm" onClick={() => removeRepoPattern(i)} disabled={saving}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              placeholder=".*"
+              value={repoPatternInput}
+              onChange={(e) => setRepoPatternInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addRepoPattern()}
+            />
+            <button className="btn btn--secondary btn--sm" onClick={addRepoPattern} disabled={saving || !repoPatternInput.trim()}>
+              Add
+            </button>
+          </div>
         </div>
       </div>
 
