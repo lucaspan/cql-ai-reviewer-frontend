@@ -29,10 +29,28 @@ interface JobCreationSetting {
   sourceQueryPodDomains: string[];
 }
 
+interface ModelRoutingSetting {
+  enabled: boolean;
+  discoveryModel: string;
+  reviewModel: string;
+  summaryModel: string;
+  diffModel: string;
+  inventoryModel: string;
+}
+
+const BEDROCK_MODELS = [
+  { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5" },
+  { id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Sonnet 4.5" },
+  { id: "us.anthropic.claude-sonnet-4-6", label: "Sonnet 4.6" },
+  { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Haiku 4.5" },
+];
+
 export default function SettingsPage() {
   const [setting, setSetting] = useState<JobSchedulerSetting | null>(null);
   const [creationSetting, setCreationSetting] =
     useState<JobCreationSetting | null>(null);
+  const [routingSetting, setRoutingSetting] =
+    useState<ModelRoutingSetting | null>(null);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,12 +79,14 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [schedulerRes, creationRes] = await Promise.all([
+      const [schedulerRes, creationRes, routingRes] = await Promise.all([
         getSetting("JOB_SCHEDULER_SETTING"),
         getSetting("JOB_CREATION_SETTING"),
+        getSetting("MODEL_ROUTING_SETTING"),
       ]);
       setSetting(schedulerRes.value as unknown as JobSchedulerSetting);
       setCreationSetting(creationRes.value as unknown as JobCreationSetting);
+      setRoutingSetting(routingRes.value as unknown as ModelRoutingSetting);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -102,6 +122,26 @@ export default function SettingsPage() {
     try {
       await updateSetting(
         "JOB_CREATION_SETTING",
+        updated as unknown as Record<string, unknown>,
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+      loadSettings();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveRoutingSetting = async (updated: ModelRoutingSetting) => {
+    setRoutingSetting(updated);
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      await updateSetting(
+        "MODEL_ROUTING_SETTING",
         updated as unknown as Record<string, unknown>,
       );
       setSaved(true);
@@ -629,6 +669,57 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="settings-card">
+        <h3 className="settings-card__title">Model Routing</h3>
+        <p className="settings-card__desc">
+          Dynamically switch models per review phase to reduce cost. When disabled, all phases use the default model (PI_MODEL env var).
+        </p>
+
+        <div className="settings-toggles">
+          <ToggleRow
+            label="Routing Enabled"
+            description="Switch models between Discovery, Review, and Summary phases"
+            checked={routingSetting?.enabled ?? false}
+            onChange={() => {
+              if (!routingSetting) return;
+              saveRoutingSetting({ ...routingSetting, enabled: !routingSetting.enabled });
+            }}
+            disabled={saving}
+          />
+        </div>
+
+        {routingSetting && (
+          <div className="settings-section">
+            <label className="form-label">Phase Model Assignments</label>
+            {(["discoveryModel", "reviewModel", "summaryModel", "diffModel", "inventoryModel"] as const).map((field) => {
+              const labels: Record<string, string> = {
+                discoveryModel: "Discovery (Phase 1)",
+                reviewModel: "Review (Phase 2)",
+                summaryModel: "Summary (Phase 3)",
+                diffModel: "Diff Mode",
+                inventoryModel: "MD Inventory",
+              };
+              return (
+                <div key={field} className="settings-add-row" style={{ marginBottom: 8 }}>
+                  <span style={{ minWidth: 140, fontSize: 13 }}>{labels[field]}</span>
+                  <select
+                    className="form-input"
+                    value={routingSetting[field]}
+                    onChange={(e) => saveRoutingSetting({ ...routingSetting, [field]: e.target.value })}
+                    disabled={saving || !routingSetting.enabled}
+                    style={{ flex: 1 }}
+                  >
+                    {BEDROCK_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {error && <div className="settings-error">{error}</div>}
