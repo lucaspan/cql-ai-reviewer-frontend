@@ -38,6 +38,10 @@ interface ModelRoutingSetting {
   inventoryModel: string;
 }
 
+interface SummaryFindingsSetting {
+  branchPatterns: string[];
+}
+
 const BEDROCK_MODELS = [
   { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5" },
   { id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Sonnet 4.5" },
@@ -51,6 +55,8 @@ export default function SettingsPage() {
     useState<JobCreationSetting | null>(null);
   const [routingSetting, setRoutingSetting] =
     useState<ModelRoutingSetting | null>(null);
+  const [summarySetting, setSummarySetting] =
+    useState<SummaryFindingsSetting | null>(null);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,14 +85,16 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [schedulerRes, creationRes, routingRes] = await Promise.all([
+      const [schedulerRes, creationRes, routingRes, summaryRes] = await Promise.all([
         getSetting("JOB_SCHEDULER_SETTING"),
         getSetting("JOB_CREATION_SETTING"),
         getSetting("MODEL_ROUTING_SETTING"),
+        getSetting("SUMMARY_FINDINGS_SETTING"),
       ]);
       setSetting(schedulerRes.value as unknown as JobSchedulerSetting);
       setCreationSetting(creationRes.value as unknown as JobCreationSetting);
       setRoutingSetting(routingRes.value as unknown as ModelRoutingSetting);
+      setSummarySetting(summaryRes.value as unknown as SummaryFindingsSetting);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -152,6 +160,47 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveSummarySetting = async (updated: SummaryFindingsSetting) => {
+    setSummarySetting(updated);
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      await updateSetting(
+        "SUMMARY_FINDINGS_SETTING",
+        updated as unknown as Record<string, unknown>,
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+      loadSettings();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const [summaryBranchInput, setSummaryBranchInput] = useState("");
+
+  const addSummaryBranchPattern = () => {
+    if (!summarySetting || !summaryBranchInput.trim()) return;
+    const pattern = summaryBranchInput.trim();
+    if (summarySetting.branchPatterns.includes(pattern)) return;
+    saveSummarySetting({
+      ...summarySetting,
+      branchPatterns: [...summarySetting.branchPatterns, pattern],
+    });
+    setSummaryBranchInput("");
+  };
+
+  const removeSummaryBranchPattern = (index: number) => {
+    if (!summarySetting) return;
+    saveSummarySetting({
+      ...summarySetting,
+      branchPatterns: summarySetting.branchPatterns.filter((_, i) => i !== index),
+    });
   };
 
   const handleToggle = (path: "enabled" | "pendingJobCrawlerEnabled" | "sqsPollingEnabled") => {
@@ -720,6 +769,56 @@ export default function SettingsPage() {
             })}
           </div>
         )}
+      </div>
+
+      <div className="settings-card">
+        <h3 className="settings-card__title">Summary Findings Pages</h3>
+        <p className="settings-card__desc">
+          Controls the Confluence "Findings Summary" rollup pages (PII,
+          Performance Faults, Markdown Inventory). These pages show the latest
+          completed review per branch.
+        </p>
+
+        <div className="settings-section">
+          <label className="form-label">
+            Included Branches — Patterns (regex)
+          </label>
+          <p className="settings-hint">
+            A branch appears on the summary pages if it matches at least one
+            pattern. Each repository's single most recent completed run is always
+            included, even if its branch matches none of these.
+          </p>
+          <div className="settings-list">
+            {summarySetting?.branchPatterns.map((pattern, i) => (
+              <div key={i} className="settings-list-item">
+                <code>{pattern}</code>
+                <button
+                  className="btn btn--danger btn--sm"
+                  onClick={() => removeSummaryBranchPattern(i)}
+                  disabled={saving}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              placeholder="^release/.*"
+              value={summaryBranchInput}
+              onChange={(e) => setSummaryBranchInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSummaryBranchPattern()}
+            />
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={addSummaryBranchPattern}
+              disabled={saving || !summaryBranchInput.trim()}
+            >
+              Add
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && <div className="settings-error">{error}</div>}
