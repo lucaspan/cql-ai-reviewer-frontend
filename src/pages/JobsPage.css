@@ -60,6 +60,7 @@
 .toolbar__filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 14px;
   flex: 1;
 }
@@ -68,6 +69,97 @@
   display: flex;
   gap: 10px;
   flex-shrink: 0;
+  align-items: flex-end;
+  /* Visually separate the action cluster from the filters */
+  padding-left: 16px;
+  border-left: 1px solid #ececf1;
+}
+
+.filter-clear {
+  height: 42px;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-end;
+}
+.filter-clear:hover {
+  text-decoration: underline;
+}
+
+/* Actions overflow menu */
+.actions-menu {
+  position: relative;
+}
+
+.actions-menu__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 248px;
+  background: white;
+  border: 1px solid #ececf1;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: actionsMenuIn 0.14s ease;
+}
+
+@keyframes actionsMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.actions-menu__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+.actions-menu__item:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+.actions-menu__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actions-menu__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.actions-menu__hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.actions-menu__divider {
+  height: 1px;
+  background: #f0f0f3;
+  margin: 4px 0;
 }
 
 .filter-group {
@@ -518,4 +610,16 @@ code.branch {
   cursor: pointer;
   color: var(--text-secondary, #94a3b8);
   margin-bottom: 6px;
+}
+
+/* Narrow screens: stack filters above actions and move the separator on top */
+@media (max-width: 900px) {
+  .toolbar__actions {
+    padding-left: 0;
+    border-left: none;
+    padding-top: 16px;
+    border-top: 1px solid #ececf1;
+    width: 100%;
+    justify-content: flex-end;
+  }
 }

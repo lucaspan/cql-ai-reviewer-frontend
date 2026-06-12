@@ -383,3 +383,14 @@ export async function publishJob(
   }>(`/job/${encodeURIComponent(id)}/publish`, { method: "POST" });
   return res.data;
 }
+
+export async function updateSummaryPages(): Promise<{
+  updated: boolean;
+  error?: string;
+}> {
+  const res = await apiFetch<{ updated: boolean; error?: string }>(
+    "/job/update-summary-pages",
+    { method: "POST" },
+  );
+  return res.data;
+}

@@ -12,6 +12,7 @@ import {
   processJobById,
   getJobActivities,
   pollSqs,
+  updateSummaryPages,
 } from "../api/jobApi";
 import ActivityModal from "../components/ActivityModal";
 import CreateJobModal from "../components/CreateJobModal";
@@ -57,6 +58,16 @@ export default function JobsPage() {
   // Follow-up modal
   const [followUpJobId, setFollowUpJobId] = useState<string | null>(null);
 
+  const [summaryRefreshing, setSummaryRefreshing] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+
+  const hasActiveFilters = Boolean(
+    filters.status ||
+      filters.githubOwner ||
+      filters.githubRepo ||
+      filters.githubBranch,
+  );
+
   const showToast = useCallback(
     (message: string, type: Toast["type"] = "info") => {
       const id = Date.now();
@@ -84,6 +95,21 @@ export default function JobsPage() {
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  // Close the actions overflow menu on outside click or Escape.
+  useEffect(() => {
+    if (!showActionsMenu) return;
+    const close = () => setShowActionsMenu(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowActionsMenu(false);
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showActionsMenu]);
 
   const loadActivities = useCallback(
     async (id: string) => {
@@ -131,6 +157,25 @@ export default function JobsPage() {
       if (result.processed) fetchJobs();
     } catch (err) {
       showToast((err as Error).message, "error");
+    }
+  };
+
+  const handleRefreshSummaryPages = async () => {
+    setSummaryRefreshing(true);
+    try {
+      const result = await updateSummaryPages();
+      if (result.updated) {
+        showToast("Confluence summary pages refreshed", "success");
+      } else {
+        showToast(
+          `Summary refresh failed: ${result.error ?? "unknown error"}`,
+          "error",
+        );
+      }
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    } finally {
+      setSummaryRefreshing(false);
     }
   };
 
@@ -261,35 +306,110 @@ export default function JobsPage() {
                 }
               />
             </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="filter-clear"
+                onClick={() => setFilters({})}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
 
           <div className="toolbar__actions">
             <button
-              className="btn btn--secondary"
+              className="btn btn--secondary btn--icon"
               onClick={fetchJobs}
               disabled={loading}
+              title="Reload jobs"
+              aria-label="Reload jobs"
             >
-              {loading ? "Loading…" : "Refresh"}
+              {loading ? "Loading…" : "↻ Refresh"}
             </button>
-            <button className="btn btn--warning" onClick={handleProcessPending}>
-              Process Pending
-            </button>
-            <button
-              className="btn btn--secondary"
-              onClick={async () => {
-                const result = await pollSqs();
-                addToast(`SQS: ${result.created} created, ${result.filtered} filtered`, "info");
-                if (result.created > 0) fetchJobs();
-              }}
+
+            <div
+              className="actions-menu"
+              onClick={(e) => e.stopPropagation()}
             >
-              Poll SQS
-            </button>
-            <button
-              className="btn btn--secondary"
-              onClick={() => setShowBatchModal(true)}
-            >
-              Batch Create
-            </button>
+              <button
+                className="btn btn--secondary"
+                onClick={() => setShowActionsMenu((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={showActionsMenu}
+              >
+                Actions ▾
+              </button>
+              {showActionsMenu && (
+                <div className="actions-menu__dropdown" role="menu">
+                  <button
+                    className="actions-menu__item"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleProcessPending();
+                    }}
+                  >
+                    <span className="actions-menu__label">Process Pending</span>
+                    <span className="actions-menu__hint">
+                      Run the next queued job
+                    </span>
+                  </button>
+                  <button
+                    className="actions-menu__item"
+                    role="menuitem"
+                    onClick={async () => {
+                      setShowActionsMenu(false);
+                      const result = await pollSqs();
+                      showToast(
+                        `SQS: ${result.created} created, ${result.filtered} filtered`,
+                        "info",
+                      );
+                      if (result.created > 0) fetchJobs();
+                    }}
+                  >
+                    <span className="actions-menu__label">Poll SQS</span>
+                    <span className="actions-menu__hint">
+                      Pull new jobs from the queue
+                    </span>
+                  </button>
+                  <button
+                    className="actions-menu__item"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleRefreshSummaryPages();
+                    }}
+                    disabled={summaryRefreshing}
+                  >
+                    <span className="actions-menu__label">
+                      {summaryRefreshing
+                        ? "Refreshing Summary…"
+                        : "Refresh Summary Pages"}
+                    </span>
+                    <span className="actions-menu__hint">
+                      Rebuild the Confluence rollup pages
+                    </span>
+                  </button>
+                  <div className="actions-menu__divider" />
+                  <button
+                    className="actions-menu__item"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      setShowBatchModal(true);
+                    }}
+                  >
+                    <span className="actions-menu__label">Batch Create</span>
+                    <span className="actions-menu__hint">
+                      Create jobs for many repos
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               className="btn btn--primary"
               onClick={() => setShowCreateModal(true)}
