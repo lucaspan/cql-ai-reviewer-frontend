@@ -40,6 +40,7 @@ interface ModelRoutingSetting {
 
 interface SummaryFindingsSetting {
   branchPatterns: string[];
+  analysisModel: string;
 }
 
 const BEDROCK_MODELS = [
@@ -818,6 +819,34 @@ export default function SettingsPage() {
               Add
             </button>
           </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">AI Analysis Model</label>
+          <p className="settings-hint">
+            Model used to summarize repo review summaries into common incidents
+            and anti-patterns. Runs only when the "Generate AI Analysis" action
+            is triggered (incurs model cost).
+          </p>
+          <select
+            className="form-input"
+            value={summarySetting?.analysisModel ?? ""}
+            onChange={(e) => {
+              if (!summarySetting) return;
+              saveSummarySetting({
+                ...summarySetting,
+                analysisModel: e.target.value,
+              });
+            }}
+            disabled={saving || !summarySetting}
+            style={{ maxWidth: 280 }}
+          >
+            {BEDROCK_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

@@ -13,6 +13,7 @@ import {
   getJobActivities,
   pollSqs,
   updateSummaryPages,
+  generateFindingsAnalysis,
 } from "../api/jobApi";
 import ActivityModal from "../components/ActivityModal";
 import CreateJobModal from "../components/CreateJobModal";
@@ -59,6 +60,7 @@ export default function JobsPage() {
   const [followUpJobId, setFollowUpJobId] = useState<string | null>(null);
 
   const [summaryRefreshing, setSummaryRefreshing] = useState(false);
+  const [analysisGenerating, setAnalysisGenerating] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   const hasActiveFilters = Boolean(
@@ -176,6 +178,28 @@ export default function JobsPage() {
       showToast((err as Error).message, "error");
     } finally {
       setSummaryRefreshing(false);
+    }
+  };
+
+  const handleGenerateAnalysis = async () => {
+    setAnalysisGenerating(true);
+    try {
+      const result = await generateFindingsAnalysis();
+      if (result.generated) {
+        showToast(
+          `AI analysis generated (PII: ${result.piiRepoCount ?? 0} repos, Performance: ${result.performanceRepoCount ?? 0} repos)`,
+          "success",
+        );
+      } else {
+        showToast(
+          `Analysis failed: ${result.error ?? "unknown error"}`,
+          "error",
+        );
+      }
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    } finally {
+      setAnalysisGenerating(false);
     }
   };
 
@@ -390,6 +414,24 @@ export default function JobsPage() {
                     </span>
                     <span className="actions-menu__hint">
                       Rebuild the Confluence rollup pages
+                    </span>
+                  </button>
+                  <button
+                    className="actions-menu__item"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleGenerateAnalysis();
+                    }}
+                    disabled={analysisGenerating}
+                  >
+                    <span className="actions-menu__label">
+                      {analysisGenerating
+                        ? "Generating Analysis…"
+                        : "Generate AI Analysis"}
+                    </span>
+                    <span className="actions-menu__hint">
+                      Costs model usage — analyzes repo summaries
                     </span>
                   </button>
                   <div className="actions-menu__divider" />

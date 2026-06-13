@@ -394,3 +394,18 @@ export async function updateSummaryPages(): Promise<{
   );
   return res.data;
 }
+
+export async function generateFindingsAnalysis(): Promise<{
+  generated: boolean;
+  piiRepoCount?: number;
+  performanceRepoCount?: number;
+  error?: string;
+}> {
+  const res = await apiFetch<{
+    generated: boolean;
+    piiRepoCount?: number;
+    performanceRepoCount?: number;
+    error?: string;
+  }>("/job/generate-findings-analysis", { method: "POST" });
+  return res.data;
+}
