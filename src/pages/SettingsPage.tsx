@@ -38,9 +38,19 @@ interface ModelRoutingSetting {
   inventoryModel: string;
 }
 
+interface FindingsAnalysisValue {
+  text: string;
+  generatedAt: string;
+  model: string;
+  repoCount: number;
+}
+
 interface SummaryFindingsSetting {
   branchPatterns: string[];
   analysisModel: string;
+  analysisPrompt: string;
+  piiAnalysis: FindingsAnalysisValue | null;
+  performanceAnalysis: FindingsAnalysisValue | null;
 }
 
 const BEDROCK_MODELS = [
@@ -847,6 +857,89 @@ export default function SettingsPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">AI Analysis Prompt Template</label>
+          <p className="settings-hint">
+            Template variables: {"{{repoCount}}"}, {"{{typeDescription}}"}, {"{{summaries}}"}
+          </p>
+          <textarea
+            className="form-input"
+            rows={12}
+            value={summarySetting?.analysisPrompt ?? ""}
+            onChange={(e) => {
+              if (!summarySetting) return;
+              setSummarySetting({ ...summarySetting, analysisPrompt: e.target.value });
+            }}
+            onBlur={() => {
+              if (!summarySetting) return;
+              saveSummarySetting(summarySetting);
+            }}
+            disabled={saving || !summarySetting}
+            style={{ fontFamily: "monospace", fontSize: 12 }}
+          />
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">Generated Analyses</label>
+          <p className="settings-hint">
+            Results from the last "Generate AI Analysis" run. Clear to remove from Confluence pages on next rebuild.
+          </p>
+
+          <div className="settings-analysis-result">
+            <div className="settings-analysis-result__header">
+              <strong>PII Analysis</strong>
+              {summarySetting?.piiAnalysis && (
+                <button
+                  className="btn btn--danger btn--sm"
+                  onClick={() => {
+                    if (!summarySetting) return;
+                    saveSummarySetting({ ...summarySetting, piiAnalysis: null });
+                  }}
+                  disabled={saving}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {summarySetting?.piiAnalysis ? (
+              <div className="settings-analysis-result__meta">
+                Generated {new Date(summarySetting.piiAnalysis.generatedAt).toLocaleString()} &middot;{" "}
+                {summarySetting.piiAnalysis.repoCount} repos &middot;{" "}
+                {BEDROCK_MODELS.find((m) => m.id === summarySetting.piiAnalysis?.model)?.label ?? summarySetting.piiAnalysis.model}
+              </div>
+            ) : (
+              <div className="settings-analysis-result__meta">Not generated yet</div>
+            )}
+          </div>
+
+          <div className="settings-analysis-result">
+            <div className="settings-analysis-result__header">
+              <strong>Performance Analysis</strong>
+              {summarySetting?.performanceAnalysis && (
+                <button
+                  className="btn btn--danger btn--sm"
+                  onClick={() => {
+                    if (!summarySetting) return;
+                    saveSummarySetting({ ...summarySetting, performanceAnalysis: null });
+                  }}
+                  disabled={saving}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {summarySetting?.performanceAnalysis ? (
+              <div className="settings-analysis-result__meta">
+                Generated {new Date(summarySetting.performanceAnalysis.generatedAt).toLocaleString()} &middot;{" "}
+                {summarySetting.performanceAnalysis.repoCount} repos &middot;{" "}
+                {BEDROCK_MODELS.find((m) => m.id === summarySetting.performanceAnalysis?.model)?.label ?? summarySetting.performanceAnalysis.model}
+              </div>
+            ) : (
+              <div className="settings-analysis-result__meta">Not generated yet</div>
+            )}
+          </div>
         </div>
       </div>
 
