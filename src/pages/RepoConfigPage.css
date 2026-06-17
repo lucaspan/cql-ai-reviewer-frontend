@@ -129,12 +129,9 @@
 
 /* Form */
 
+/* .rc-form is rendered as the modal body; the modal shell provides the
+   surface (background, padding, scroll), so this only handles inner layout. */
 .rc-form {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-  border: 1px solid #f0f0f3;
-  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -166,14 +163,6 @@
   font-size: 14px;
   color: #374151;
   cursor: pointer;
-}
-
-.rc-form-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #f0f0f3;
 }
 
 /* Ingest form */

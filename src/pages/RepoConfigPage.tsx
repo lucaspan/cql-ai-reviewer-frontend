@@ -15,6 +15,7 @@ import type {
   ReviewJobType,
 } from "../types/job.types";
 import "./RepoConfigPage.css";
+import "../components/Modal.css";
 
 const previewTh: React.CSSProperties = {
   textAlign: "left",
@@ -635,6 +636,15 @@ function RepoConfigForm({
   );
   const [submitting, setSubmitting] = useState(false);
 
+  // Close on Escape (modal-escape / escape-routes).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [submitting, onCancel]);
+
   const toggleJobType = (id: string) => {
     setForm((f) => ({
       ...f,
@@ -693,10 +703,39 @@ function RepoConfigForm({
   };
 
   return (
-    <form className="rc-form" onSubmit={handleSubmit}>
-      <div className="rc-form-grid">
-        <div className="form-field">
-          <label className="form-label">Owner</label>
+    <div
+      className="modal-backdrop"
+      onClick={() => {
+        if (!submitting) onCancel();
+      }}
+    >
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal__header">
+          <div>
+            <h2 className="modal__title">
+              {config ? "Edit Repo Config" : "Add Repo Config"}
+            </h2>
+            <p className="modal__subtitle">
+              {config
+                ? `${config.githubOwner}/${config.githubRepo}`
+                : "Configure job types, dependent repos, and viewers for a repository"}
+            </p>
+          </div>
+          <button
+            className="modal__close"
+            onClick={onCancel}
+            disabled={submitting}
+            type="button"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form className="modal__body rc-form" onSubmit={handleSubmit}>
+          <div className="rc-form-grid">
+            <div className="form-field">
+              <label className="form-label">Owner</label>
           <input
             className="form-input"
             value={form.githubOwner}
@@ -845,18 +884,25 @@ function RepoConfigForm({
         <span>Enabled</span>
       </label>
 
-      <div className="rc-form-footer">
-        <button type="button" className="btn btn--secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="btn btn--primary"
-          disabled={submitting || !form.githubRepo}
-        >
-          {submitting ? "Saving..." : config ? "Update" : "Create"}
-        </button>
+          <div className="modal__footer">
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={onCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={submitting || !form.githubRepo}
+            >
+              {submitting ? "Saving..." : config ? "Update" : "Create"}
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
   );
 }
