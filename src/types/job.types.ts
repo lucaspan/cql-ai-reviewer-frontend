@@ -210,7 +210,7 @@ export interface RepoConfig {
   githubOwner: string;
   githubRepo: string;
   githubBranch: string | null;
-  jobTypes: string[];
+  jobTypes: string[] | null;
   dependentRepos: DependentRepoConfig[] | null;
   confluenceEmails: string[] | null;
   enabled: boolean;

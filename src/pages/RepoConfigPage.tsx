@@ -16,6 +16,13 @@ import type {
 } from "../types/job.types";
 import "./RepoConfigPage.css";
 
+const previewTh: React.CSSProperties = {
+  textAlign: "left",
+  padding: "4px 8px",
+  borderBottom: "1px solid #ddd",
+};
+const previewTd: React.CSSProperties = { padding: "4px 8px" };
+
 export default function RepoConfigPage() {
   const [configs, setConfigs] = useState<RepoConfig[]>([]);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
@@ -27,10 +34,21 @@ export default function RepoConfigPage() {
   const [showIngestForm, setShowIngestForm] = useState(false);
   const [ingestText, setIngestText] = useState("");
 
-  // Source DB preview
-  const [sourceRepos, setSourceRepos] = useState<SourceRepo[] | null>(null);
-  const [sourceReposLoading, setSourceReposLoading] = useState(false);
   const [sourceIngestLoading, setSourceIngestLoading] = useState(false);
+
+  // Batch-create repo configs.
+  const [showBatchForm, setShowBatchForm] = useState(false);
+  const [batchText, setBatchText] = useState("");
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchResult, setBatchResult] = useState<{
+    created: number;
+    failed: number;
+    errors: string[];
+  } | null>(null);
+
+  // Ingest-from-source preview → confirm flow.
+  const [sourcePreview, setSourcePreview] = useState<SourceRepo[] | null>(null);
+  const [sourcePreviewLoading, setSourcePreviewLoading] = useState(false);
 
   useEffect(() => {
     load();
@@ -90,38 +108,29 @@ export default function RepoConfigPage() {
     }
   };
 
-  const handlePreviewSourceRepos = async () => {
-    setSourceRepos(null);
-    setSourceReposLoading(true);
+  /** Step 1: preview the repos the source DB query would return (no jobs created). */
+  const handlePreviewSource = async () => {
+    setSourcePreviewLoading(true);
+    setSourcePreview(null);
+    setIngestResult(null);
     try {
-      setSourceRepos(await getSourceRepos());
+      setSourcePreview(await getSourceRepos());
     } catch {
       // silent
     } finally {
-      setSourceReposLoading(false);
+      setSourcePreviewLoading(false);
     }
   };
 
-  /** Ingest without override — backend runs the source DB query itself */
-  const handleIngestFromSource = async () => {
+  /** Step 2: confirm — ingest the previewed repos. */
+  const handleConfirmIngestSource = async () => {
+    if (!sourcePreview) return;
     setSourceIngestLoading(true);
     setIngestResult(null);
     try {
-      setIngestResult(await ingestFromSource());
-    } catch {
-      // silent
-    } finally {
-      setSourceIngestLoading(false);
-    }
-  };
-
-  /** Ingest previewed repos as override */
-  const handleIngestPreviewed = async () => {
-    if (!sourceRepos || sourceRepos.length === 0) return;
-    setSourceIngestLoading(true);
-    setIngestResult(null);
-    try {
-      setIngestResult(await ingestFromSource(sourceRepos));
+      // Pass the previewed list back as the override so we ingest exactly what was shown.
+      setIngestResult(await ingestFromSource(sourcePreview));
+      setSourcePreview(null);
     } catch {
       // silent
     } finally {
@@ -153,6 +162,88 @@ export default function RepoConfigPage() {
       });
   };
 
+  // Treat "-" or "null" (case-insensitive) as an explicit null for a column.
+  const isNullToken = (s: string) => s === "-" || s.toLowerCase() === "null";
+
+  // Parse a batch line: owner repo branch jobTypes emails
+  //   branch:   "-"/"null" → null (all branches)
+  //   jobTypes: "-"/"null" → null (inherit defaults); otherwise comma-separated list
+  //   emails:   "-"/"null" → null; otherwise comma-separated list
+  const parseBatchLine = (
+    line: string,
+  ): { ok: true; data: Partial<RepoConfig> } | { ok: false; error: string } => {
+    const parts = line.split(/\s+/);
+    if (parts.length < 2) {
+      return { ok: false, error: `"${line}" — need at least owner and repo` };
+    }
+    const [owner, repo, branch, jobTypesRaw, emailsRaw] = parts;
+
+    const githubBranch = !branch || isNullToken(branch) ? null : branch;
+
+    const jobTypes =
+      !jobTypesRaw || isNullToken(jobTypesRaw)
+        ? null
+        : jobTypesRaw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+    const confluenceEmails =
+      !emailsRaw || isNullToken(emailsRaw)
+        ? null
+        : emailsRaw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+    return {
+      ok: true,
+      data: {
+        githubOwner: owner,
+        githubRepo: repo,
+        githubBranch,
+        jobTypes,
+        confluenceEmails,
+        enabled: true,
+      },
+    };
+  };
+
+  const handleBatchCreate = async () => {
+    const lines = batchText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return;
+
+    setBatchRunning(true);
+    setBatchResult(null);
+    let created = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const line of lines) {
+      const parsed = parseBatchLine(line);
+      if (!parsed.ok) {
+        failed++;
+        errors.push(parsed.error);
+        continue;
+      }
+      try {
+        await createRepoConfig(parsed.data);
+        created++;
+      } catch (err) {
+        failed++;
+        errors.push(`"${line}" — ${(err as Error).message}`);
+      }
+    }
+
+    setBatchRunning(false);
+    setBatchResult({ created, failed, errors });
+    setBatchText("");
+    load();
+  };
+
   if (loading) {
     return <div className="rc-state">Loading...</div>;
   }
@@ -165,38 +256,26 @@ export default function RepoConfigPage() {
         </span>
         <div className="rc-toolbar-actions">
           <button
-            className="btn btn--secondary btn--sm"
-            onClick={handlePreviewSourceRepos}
-            disabled={sourceReposLoading || sourceIngestLoading || ingesting}
-          >
-            {sourceReposLoading ? "Loading…" : "Preview Source Repos"}
-          </button>
-          <button
             className="btn btn--warning btn--sm"
-            onClick={handleIngestFromSource}
-            disabled={sourceIngestLoading || sourceReposLoading || ingesting}
-            title="Ingest directly from source DB query (no override)"
+            onClick={handlePreviewSource}
+            disabled={sourcePreviewLoading || sourceIngestLoading || ingesting}
+            title="Preview repos from the source DB query, then confirm to ingest"
           >
-            {sourceIngestLoading ? "Ingesting…" : "Ingest from Source"}
+            {sourcePreviewLoading ? "Loading…" : "Ingest from Source"}
           </button>
-          {sourceRepos && sourceRepos.length > 0 && (
-            <button
-              className="btn btn--primary btn--sm"
-              onClick={handleIngestPreviewed}
-              disabled={sourceIngestLoading || sourceReposLoading || ingesting}
-              title="Ingest using the previewed repos list as override"
-            >
-              {sourceIngestLoading
-                ? "Ingesting…"
-                : `Ingest Previewed (${sourceRepos.length})`}
-            </button>
-          )}
           <button
             className="btn btn--secondary btn--sm"
             onClick={() => setShowIngestForm((v) => !v)}
             disabled={ingesting}
           >
             {ingesting ? "Running..." : "Run Ingestion"}
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={() => setShowBatchForm((v) => !v)}
+            disabled={batchRunning}
+          >
+            Batch Add
           </button>
           <button
             className="btn btn--primary btn--sm"
@@ -206,6 +285,136 @@ export default function RepoConfigPage() {
           </button>
         </div>
       </div>
+
+      {showBatchForm && (
+        <div className="rc-ingest-form">
+          <p className="rc-ingest-form-hint">
+            One config per line:{" "}
+            <code>owner repo branch jobTypes emails</code>. Use <code>-</code>{" "}
+            (or <code>null</code>) for a null field. <code>branch</code> null ={" "}
+            all branches; <code>jobTypes</code> null = inherit defaults;{" "}
+            <code>jobTypes</code>/<code>emails</code> are comma-separated (no
+            spaces).
+          </p>
+          <textarea
+            className="batch-textarea"
+            placeholder={`BMO-Prod my-repo master PII,PERFORMANCE a@bmo.com,b@bmo.com\nBMO-Prod other-repo - - -\nBMO-Prod third-repo master PII null`}
+            value={batchText}
+            onChange={(e) => setBatchText(e.target.value)}
+            rows={5}
+            spellCheck={false}
+            disabled={batchRunning}
+          />
+          <div className="rc-ingest-form-actions">
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={handleBatchCreate}
+              disabled={batchRunning || !batchText.trim()}
+            >
+              {batchRunning
+                ? "Creating…"
+                : `Create ${batchText.split("\n").map((l) => l.trim()).filter(Boolean).length} config(s)`}
+            </button>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => {
+                setShowBatchForm(false);
+                setBatchResult(null);
+              }}
+              disabled={batchRunning}
+            >
+              Cancel
+            </button>
+          </div>
+          {batchResult && (
+            <div className="rc-ingest-result" style={{ marginTop: 12 }}>
+              <div className="rc-ingest-summary">
+                <span className="rc-ingest-created">
+                  {batchResult.created} created
+                </span>
+                <span className="rc-ingest-skipped">
+                  {batchResult.failed} failed
+                </span>
+              </div>
+              {batchResult.errors.length > 0 && (
+                <div className="rc-ingest-list">
+                  {batchResult.errors.map((e, i) => (
+                    <div key={i} className="rc-ingest-item rc-ingest-item--skip">
+                      {e}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {sourcePreview !== null && (
+        <div className="rc-ingest-form">
+          <p className="rc-ingest-form-hint">
+            {sourcePreview.length} repo(s) from the source query. Review, then
+            confirm to create jobs — no jobs are created until you confirm.
+          </p>
+          {sourcePreview.length > 0 ? (
+            <div style={{ maxHeight: 300, overflowY: "auto", fontSize: 12 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={previewTh}>Repo</th>
+                    <th style={previewTh}>Branch</th>
+                    <th style={previewTh}>Pod Domain</th>
+                    <th style={previewTh}>SQ Event Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sourcePreview.map((r, i) => (
+                    <tr key={i}>
+                      <td style={previewTd}>{r.githubRepo}</td>
+                      <td style={previewTd}>{r.githubBranch}</td>
+                      <td style={previewTd}>
+                        {(r.payload as Record<string, unknown> | undefined)
+                          ?.podDomain as string ?? "—"}
+                      </td>
+                      <td style={previewTd}>
+                        {(r.payload as Record<string, unknown> | undefined)
+                          ?.sqEventCreatedAt
+                          ? new Date(
+                              (r.payload as Record<string, string>)
+                                .sqEventCreatedAt,
+                            ).toLocaleDateString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="rc-ingest-form-hint">
+              No repos matched the source query with the current settings.
+            </p>
+          )}
+          <div className="rc-ingest-form-actions">
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={handleConfirmIngestSource}
+              disabled={sourceIngestLoading || sourcePreview.length === 0}
+            >
+              {sourceIngestLoading
+                ? "Ingesting…"
+                : `Confirm & Ingest ${sourcePreview.length} repo(s)`}
+            </button>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => setSourcePreview(null)}
+              disabled={sourceIngestLoading}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {showIngestForm && !ingesting && (
         <div className="rc-ingest-form">
@@ -335,13 +544,19 @@ export default function RepoConfigPage() {
                   {cfg.githubBranch ?? <span className="rc-all">all</span>}
                 </td>
                 <td>
-                  <div className="rc-pills">
-                    {cfg.jobTypes.map((jt) => (
-                      <span key={jt} className="rc-pill">
-                        {jt}
-                      </span>
-                    ))}
-                  </div>
+                  {cfg.jobTypes === null ? (
+                    <span className="rc-all">default</span>
+                  ) : cfg.jobTypes.length === 0 ? (
+                    <span className="rc-all">none</span>
+                  ) : (
+                    <div className="rc-pills">
+                      {cfg.jobTypes.map((jt) => (
+                        <span key={jt} className="rc-pill">
+                          {jt}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td>
                   {cfg.dependentRepos && cfg.dependentRepos.length > 0
@@ -407,6 +622,14 @@ function RepoConfigForm({
     confluenceEmails: config?.confluenceEmails?.join(", ") ?? "",
     enabled: config?.enabled ?? true,
   });
+  // jobTypes is tri-state:
+  //   null  → inherit the default job types from JOB_CREATION_SETTING (inherit = true)
+  //   []    → custom + empty → suppress job creation for this repo
+  //   [...] → custom explicit list
+  // A brand-new config defaults to "inherit".
+  const [inheritJobTypes, setInheritJobTypes] = useState(
+    config ? config.jobTypes === null : true,
+  );
   const [deps, setDeps] = useState<DependentRepoConfig[]>(
     config?.dependentRepos ?? [],
   );
@@ -459,7 +682,7 @@ function RepoConfigForm({
         githubOwner: form.githubOwner,
         githubRepo: form.githubRepo,
         githubBranch: form.githubBranch || null,
-        jobTypes: form.jobTypes,
+        jobTypes: inheritJobTypes ? null : form.jobTypes,
         dependentRepos: deps.filter((d) => d.githubRepo),
         confluenceEmails: emails.length > 0 ? emails : null,
         enabled: form.enabled,
@@ -511,18 +734,39 @@ function RepoConfigForm({
 
       <div className="form-field">
         <label className="form-label">Job Types</label>
-        <div className="rc-job-types">
-          {jobTypes.map((jt) => (
-            <label key={jt.id} className="batch-job-type-chip">
-              <input
-                type="checkbox"
-                checked={form.jobTypes.includes(jt.id)}
-                onChange={() => toggleJobType(jt.id)}
-              />
-              <span>{jt.id}</span>
-            </label>
-          ))}
-        </div>
+        <label className="rc-enabled-toggle">
+          <input
+            type="checkbox"
+            checked={inheritJobTypes}
+            onChange={(e) => setInheritJobTypes(e.target.checked)}
+          />
+          <span>Inherit default job types</span>
+        </label>
+        {inheritJobTypes ? (
+          <p className="form-optional" style={{ marginTop: 8 }}>
+            Uses the default job types from Job Creation settings.
+          </p>
+        ) : (
+          <>
+            <div className="rc-job-types" style={{ marginTop: 8 }}>
+              {jobTypes.map((jt) => (
+                <label key={jt.id} className="batch-job-type-chip">
+                  <input
+                    type="checkbox"
+                    checked={form.jobTypes.includes(jt.id)}
+                    onChange={() => toggleJobType(jt.id)}
+                  />
+                  <span>{jt.id}</span>
+                </label>
+              ))}
+            </div>
+            {form.jobTypes.length === 0 && (
+              <p className="form-optional" style={{ marginTop: 8 }}>
+                No job types selected — no jobs will be created for this repo.
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       <div className="form-field">
@@ -608,9 +852,7 @@ function RepoConfigForm({
         <button
           type="submit"
           className="btn btn--primary"
-          disabled={
-            submitting || !form.githubRepo || form.jobTypes.length === 0
-          }
+          disabled={submitting || !form.githubRepo}
         >
           {submitting ? "Saving..." : config ? "Update" : "Create"}
         </button>
