@@ -137,6 +137,7 @@ export interface IssueJobRow {
   medium_count: number;
   low_count: number;
   created_at: string;
+  updated_at: string;
 }
 
 export interface IssueDetailRow {
@@ -159,6 +160,7 @@ export interface IssueDetailRow {
   what_would_confirm: string | null;
   logging_level: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface MdJobRow {
@@ -172,6 +174,7 @@ export interface MdJobRow {
   label_breakdown: Record<string, number>;
   audience_breakdown: Record<string, number>;
   created_at: string;
+  updated_at: string;
 }
 
 export interface MdDetailRow {
@@ -186,6 +189,7 @@ export interface MdDetailRow {
   label: string;
   audience: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface MdLabelRow {
@@ -216,4 +220,54 @@ export interface RepoConfig {
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- Threat-modeling projects (AI vuln pipeline) ---
+
+export type ProjectRunStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
+
+export interface ProjectRepo {
+  id: string;
+  projectId: string;
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch: string;
+  role: string | null;
+  promptDescription: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  repos?: ProjectRepo[];
+}
+
+export interface ProjectRunStage {
+  id: string;
+  projectRunId: string;
+  stage: string;
+  ordinal: number;
+  status: ProjectRunStatus;
+  results: Record<string, unknown> | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectRun {
+  id: string;
+  projectId: string;
+  status: ProjectRunStatus;
+  summary: Record<string, unknown> | null;
+  error: string | null;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  stages?: ProjectRunStage[];
 }

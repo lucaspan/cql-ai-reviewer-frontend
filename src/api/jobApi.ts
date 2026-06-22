@@ -17,6 +17,9 @@ import type {
   MdLabelRow,
   MdAudienceRow,
   RepoConfig,
+  Project,
+  ProjectRepo,
+  ProjectRun,
 } from "../types/job.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
@@ -407,5 +410,97 @@ export async function generateFindingsAnalysis(): Promise<{
     performanceRepoCount?: number;
     error?: string;
   }>("/job/generate-findings-analysis", { method: "POST" });
+  return res.data;
+}
+
+// --- Threat-modeling projects (AI vuln pipeline) ---
+
+export async function getProjects(): Promise<Project[]> {
+  const res = await apiFetch<Project[]>("/project");
+  return res.data;
+}
+
+export async function getProject(id: string): Promise<Project> {
+  const res = await apiFetch<Project>(`/project/${encodeURIComponent(id)}`);
+  return res.data;
+}
+
+export async function createProject(data: {
+  name: string;
+  description?: string | null;
+}): Promise<Project> {
+  const res = await apiFetch<Project>("/project", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data;
+}
+
+export async function updateProject(
+  id: string,
+  data: Partial<Pick<Project, "name" | "description" | "enabled">>,
+): Promise<Project> {
+  const res = await apiFetch<Project>(`/project/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return res.data;
+}
+
+export async function deleteProject(id: string): Promise<{ deleted: boolean }> {
+  const res = await apiFetch<{ deleted: boolean }>(
+    `/project/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
+export async function addProjectRepo(
+  projectId: string,
+  data: Partial<ProjectRepo>,
+): Promise<ProjectRepo> {
+  const res = await apiFetch<ProjectRepo>(
+    `/project/${encodeURIComponent(projectId)}/repos`,
+    { method: "POST", body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+export async function removeProjectRepo(
+  projectId: string,
+  repoId: string,
+): Promise<{ deleted: boolean }> {
+  const res = await apiFetch<{ deleted: boolean }>(
+    `/project/${encodeURIComponent(projectId)}/repos/${encodeURIComponent(repoId)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
+export async function createProjectRun(
+  projectId: string,
+  stages?: string[],
+): Promise<ProjectRun> {
+  const res = await apiFetch<ProjectRun>(
+    `/project/${encodeURIComponent(projectId)}/run`,
+    { method: "POST", body: JSON.stringify(stages ? { stages } : {}) },
+  );
+  return res.data;
+}
+
+export async function processProjectRun(
+  runId: string,
+): Promise<{ processed: boolean; runId?: string }> {
+  const res = await apiFetch<{ processed: boolean; runId?: string }>(
+    `/project/run/${encodeURIComponent(runId)}/process`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function getProjectRuns(projectId: string): Promise<ProjectRun[]> {
+  const res = await apiFetch<ProjectRun[]>(
+    `/project/${encodeURIComponent(projectId)}/runs`,
+  );
   return res.data;
 }
