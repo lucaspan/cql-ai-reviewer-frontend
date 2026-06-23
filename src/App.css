@@ -1,42 +1,228 @@
-/* App navigation */
-.app-nav {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 4px;
-  background: white;
-  padding: 6px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
-  z-index: 400;
+/* App shell — collapsible left sidebar + main content */
+.app-shell {
+  --app-header-h: 60px;
+  min-height: 100dvh;
 }
 
-.app-nav__btn {
-  padding: 10px 24px;
+.app-main {
+  min-height: 100dvh;
+}
+
+/* ----- Hamburger toggle (open button) ----- */
+/* Vertically centered within the header band (var(--app-header-h)): the band is
+   --app-header-h tall, the button is 40px, so top = (band - 40) / 2. */
+.app-navtoggle {
+  position: fixed;
+  top: calc((var(--app-header-h) - 40px) / 2);
+  left: 16px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: #1a1a2e;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: background 0.15s;
+}
+
+.app-navtoggle:hover {
+  background: #2a2a44;
+}
+
+.app-navtoggle:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+/* ----- Sidebar ----- */
+.app-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100dvh;
+  width: 240px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #1a1a2e;
+  padding: 16px 14px 20px;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+
+.app-sidebar--open {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar,
+  .app-navtoggle,
+  .app-main {
+    transition: none;
+  }
+}
+
+.app-sidebar__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 8px;
+}
+
+.app-sidebar__brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.2px;
+}
+
+.app-sidebar__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #c7c9d9;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.app-sidebar__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.app-sidebar__close:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+.app-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.app-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-sidebar__group-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6b7280;
+  padding: 4px 12px;
+}
+
+.app-sidebar__item {
+  text-align: left;
+  padding: 10px 12px;
   border: none;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   background: transparent;
-  color: #6b7280;
-  transition: all 0.15s;
+  color: #c7c9d9;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
-.app-nav__btn:hover {
-  background: #f3f4f6;
-  color: #111827;
+.app-sidebar__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
 }
 
-.app-nav__btn--active {
+.app-sidebar__item:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+.app-sidebar__item--active {
   background: #6366f1;
   color: white;
 }
 
-.app-nav__btn--active:hover {
+.app-sidebar__item--active:hover {
   background: #4f46e5;
   color: white;
+}
+
+/* ----- Scrim (overlay mode, narrow screens) ----- */
+.app-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* On desktop the open sidebar docks (pushes content), so no scrim needed. */
+@media (min-width: 1024px) {
+  .app-scrim {
+    display: none;
+  }
+
+  .app-main {
+    transition: margin-left 0.2s ease;
+  }
+
+  .app-shell--nav-open .app-main {
+    margin-left: 240px;
+  }
+}
+
+/* ----- Page header chrome ----- */
+/* The sidebar owns branding, so the per-page header drops the redundant app
+   name and keeps only the section label as a title. When the sidebar is closed
+   the floating open-button sits top-left, so reserve room for it. */
+.app-main .jobs-page__header {
+  background: white;
+  color: #111827;
+  box-shadow: 0 1px 0 #e5e7eb;
+  min-height: var(--app-header-h);
+  box-sizing: border-box;
+  padding: 0 32px 0 68px;
+  display: flex;
+  align-items: center;
+}
+
+.app-main .jobs-page__title {
+  display: none;
+}
+
+.app-main .jobs-page__subtitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* When the sidebar is open, the floating open-button is hidden, so the header
+   no longer needs to reserve space for it. */
+.app-shell--nav-open .app-main .jobs-page__header {
+  padding-left: 32px;
 }

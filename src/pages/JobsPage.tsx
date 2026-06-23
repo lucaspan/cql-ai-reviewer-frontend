@@ -257,8 +257,7 @@ export default function JobsPage() {
   return (
     <div className="jobs-page">
       <header className="jobs-page__header">
-        <span className="jobs-page__logo">⚡</span>
-        <h1 className="jobs-page__title">JDev AI Reviewer</h1>
+        <h1 className="jobs-page__title">CQL AI Reviewer</h1>
         <span className="jobs-page__subtitle">Job Manager</span>
       </header>
 
