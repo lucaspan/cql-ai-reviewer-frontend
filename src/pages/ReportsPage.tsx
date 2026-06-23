@@ -1,12 +1,6 @@
-import { useState, useEffect } from "react";
-import {
-  getIssueJobView,
-  getIssueDetailView,
-  getMdJobView,
-  getMdDetailView,
-  getMdLabelView,
-  getMdAudienceView,
-} from "../api/jobApi";
+import { useState, useEffect, useCallback } from "react";
+import { getReportViewPaginated } from "../api/jobApi";
+import type { ReportView } from "../api/jobApi";
 import type {
   IssueJobRow,
   IssueDetailRow,
@@ -14,10 +8,12 @@ import type {
   MdDetailRow,
   MdLabelRow,
   MdAudienceRow,
+  PaginationMeta,
 } from "../types/job.types";
+import Pagination from "../components/Pagination";
 import "./ReportsPage.css";
 
-type ReportTab = "issue-job" | "issue-detail" | "md-job" | "md-detail" | "md-label" | "md-audience";
+type ReportTab = ReportView;
 
 export default function ReportsPage() {
   const [tab, setTab] = useState<ReportTab>("issue-job");
@@ -30,27 +26,68 @@ export default function ReportsPage() {
   const [mdLabels, setMdLabels] = useState<MdLabelRow[]>([]);
   const [mdAudiences, setMdAudiences] = useState<MdAudienceRow[]>([]);
 
-  useEffect(() => {
-    loadTab(tab);
-  }, [tab]);
+  // Pagination state is shared across tabs and reset whenever the tab changes.
+  const [page, setPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(20);
+  const [pageMeta, setPageMeta] = useState<PaginationMeta | null>(null);
 
-  const loadTab = async (t: ReportTab) => {
+  const loadTab = useCallback(async () => {
     setLoading(true);
     try {
-      switch (t) {
-        case "issue-job": setIssueJobs(await getIssueJobView()); break;
-        case "issue-detail": setIssueDetails(await getIssueDetailView()); break;
-        case "md-job": setMdJobs(await getMdJobView()); break;
-        case "md-detail": setMdDetails(await getMdDetailView()); break;
-        case "md-label": setMdLabels(await getMdLabelView()); break;
-        case "md-audience": setMdAudiences(await getMdAudienceView()); break;
+      const params = { page, limit: pageLimit };
+      switch (tab) {
+        case "issue-job": {
+          const r = await getReportViewPaginated<IssueJobRow>("issue-job", params);
+          setIssueJobs(r.data);
+          setPageMeta(r.pagination);
+          break;
+        }
+        case "issue-detail": {
+          const r = await getReportViewPaginated<IssueDetailRow>("issue-detail", params);
+          setIssueDetails(r.data);
+          setPageMeta(r.pagination);
+          break;
+        }
+        case "md-job": {
+          const r = await getReportViewPaginated<MdJobRow>("md-job", params);
+          setMdJobs(r.data);
+          setPageMeta(r.pagination);
+          break;
+        }
+        case "md-detail": {
+          const r = await getReportViewPaginated<MdDetailRow>("md-detail", params);
+          setMdDetails(r.data);
+          setPageMeta(r.pagination);
+          break;
+        }
+        case "md-label": {
+          const r = await getReportViewPaginated<MdLabelRow>("md-label", params);
+          setMdLabels(r.data);
+          setPageMeta(r.pagination);
+          break;
+        }
+        case "md-audience": {
+          const r = await getReportViewPaginated<MdAudienceRow>("md-audience", params);
+          setMdAudiences(r.data);
+          setPageMeta(r.pagination);
+          break;
+        }
       }
     } catch {
       // silent
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab, page, pageLimit]);
+
+  useEffect(() => {
+    loadTab();
+  }, [loadTab]);
+
+  // Reset to the first page when switching tabs (each view is a different dataset).
+  useEffect(() => {
+    setPage(1);
+  }, [tab]);
 
   const formatDate = (d: string) => d ? new Date(d).toLocaleString() : "—";
   const shortCommit = (c: string | null) => c ? c.slice(0, 7) : "—";
@@ -300,6 +337,18 @@ export default function ReportsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!loading && (
+        <Pagination
+          meta={pageMeta}
+          disabled={loading}
+          onPageChange={setPage}
+          onLimitChange={(limit) => {
+            setPageLimit(limit);
+            setPage(1);
+          }}
+        />
       )}
     </div>
   );

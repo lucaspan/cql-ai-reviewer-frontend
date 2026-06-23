@@ -20,6 +20,8 @@ import type {
   Project,
   ProjectRepo,
   ProjectRun,
+  Paginated,
+  ListParams,
 } from "../types/job.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
@@ -54,9 +56,20 @@ async function apiFetch<T>(
   return res.json() as Promise<JDevApiResponse<T>>;
 }
 
-export async function getJobs(
-  params: GetJobsParams = {},
-): Promise<Partial<GithubReviewJob>[]> {
+// Append optional pagination params to a URLSearchParams instance.
+function applyListParams(query: URLSearchParams, params?: ListParams): void {
+  if (!params) return;
+  if (params.page !== undefined) query.set("page", String(params.page));
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.orderBy) query.set("orderBy", params.orderBy);
+  if (params.order) query.set("order", params.order);
+}
+
+// Returns the full paginated envelope. `getJobs` below unwraps to the array for
+// callers that don't care about pagination.
+export async function getJobsPaginated(
+  params: GetJobsParams & ListParams = {},
+): Promise<Paginated<Partial<GithubReviewJob>>> {
   const query = new URLSearchParams();
   if (params.id) query.set("id", params.id);
   if (params.status) query.set("status", params.status);
@@ -66,10 +79,18 @@ export async function getJobs(
   if (params.dedupKey) query.set("dedupKey", params.dedupKey);
   if (params.includeResults) query.set("includeResults", "true");
   if (params.includeMetrics) query.set("includeMetrics", "true");
+  applyListParams(query, params);
 
   const qs = query.toString();
-  const res = await apiFetch<Partial<GithubReviewJob>[]>(`/job?${qs}`);
+  const res = await apiFetch<Paginated<Partial<GithubReviewJob>>>(`/job?${qs}`);
   return res.data;
+}
+
+export async function getJobs(
+  params: GetJobsParams & ListParams = {},
+): Promise<Partial<GithubReviewJob>[]> {
+  const result = await getJobsPaginated(params);
+  return result.data;
 }
 
 export async function createJob(
@@ -91,11 +112,14 @@ export async function processPendingJob(): Promise<ProcessJobResult> {
 
 export async function getJobActivities(
   id: string,
+  params?: ListParams,
 ): Promise<GithubReviewJobActivity[]> {
-  const res = await apiFetch<GithubReviewJobActivity[]>(
-    `/job/${encodeURIComponent(id)}/activity`,
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<GithubReviewJobActivity>>(
+    `/job/${encodeURIComponent(id)}/activity?${query.toString()}`,
   );
-  return res.data;
+  return res.data.data;
 }
 
 export async function processJobById(
@@ -138,9 +162,11 @@ export async function followUpJob(
 
 // --- Job Type API ---
 
-export async function getJobTypes(): Promise<ReviewJobType[]> {
-  const res = await apiFetch<ReviewJobType[]>("/job-type");
-  return res.data;
+export async function getJobTypes(params?: ListParams): Promise<ReviewJobType[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<ReviewJobType>>(`/job-type?${query.toString()}`);
+  return res.data.data;
 }
 
 export async function getJobType(id: string): Promise<ReviewJobType> {
@@ -186,11 +212,14 @@ export async function deleteJobType(id: string): Promise<{ deleted: boolean }> {
 
 export async function getJobTypeVersions(
   id: string,
+  params?: ListParams,
 ): Promise<ReviewJobTypeVersion[]> {
-  const res = await apiFetch<ReviewJobTypeVersion[]>(
-    `/job-type/${encodeURIComponent(id)}/versions`,
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<ReviewJobTypeVersion>>(
+    `/job-type/${encodeURIComponent(id)}/versions?${query.toString()}`,
   );
-  return res.data;
+  return res.data.data;
 }
 
 export async function getJobTypeVersion(
@@ -250,41 +279,75 @@ export async function updateSetting(
 
 // --- Report API ---
 
-export async function getIssueJobView(): Promise<IssueJobRow[]> {
-  const res = await apiFetch<IssueJobRow[]>("/report/issue-job");
+export type ReportView =
+  | "issue-job"
+  | "issue-detail"
+  | "md-job"
+  | "md-detail"
+  | "md-label"
+  | "md-audience";
+
+// Generic paginated fetch for any report view — returns the full envelope so the
+// caller can render page controls. The per-view helpers below unwrap to arrays.
+export async function getReportViewPaginated<T>(
+  view: ReportView,
+  params?: ListParams,
+): Promise<Paginated<T>> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<T>>(`/report/${view}?${query.toString()}`);
   return res.data;
 }
 
-export async function getIssueDetailView(): Promise<IssueDetailRow[]> {
-  const res = await apiFetch<IssueDetailRow[]>("/report/issue-detail");
-  return res.data;
+export async function getIssueJobView(params?: ListParams): Promise<IssueJobRow[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<IssueJobRow>>(`/report/issue-job?${query.toString()}`);
+  return res.data.data;
 }
 
-export async function getMdJobView(): Promise<MdJobRow[]> {
-  const res = await apiFetch<MdJobRow[]>("/report/md-job");
-  return res.data;
+export async function getIssueDetailView(params?: ListParams): Promise<IssueDetailRow[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<IssueDetailRow>>(`/report/issue-detail?${query.toString()}`);
+  return res.data.data;
 }
 
-export async function getMdDetailView(): Promise<MdDetailRow[]> {
-  const res = await apiFetch<MdDetailRow[]>("/report/md-detail");
-  return res.data;
+export async function getMdJobView(params?: ListParams): Promise<MdJobRow[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<MdJobRow>>(`/report/md-job?${query.toString()}`);
+  return res.data.data;
 }
 
-export async function getMdLabelView(): Promise<MdLabelRow[]> {
-  const res = await apiFetch<MdLabelRow[]>("/report/md-label");
-  return res.data;
+export async function getMdDetailView(params?: ListParams): Promise<MdDetailRow[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<MdDetailRow>>(`/report/md-detail?${query.toString()}`);
+  return res.data.data;
 }
 
-export async function getMdAudienceView(): Promise<MdAudienceRow[]> {
-  const res = await apiFetch<MdAudienceRow[]>("/report/md-audience");
-  return res.data;
+export async function getMdLabelView(params?: ListParams): Promise<MdLabelRow[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<MdLabelRow>>(`/report/md-label?${query.toString()}`);
+  return res.data.data;
+}
+
+export async function getMdAudienceView(params?: ListParams): Promise<MdAudienceRow[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<MdAudienceRow>>(`/report/md-audience?${query.toString()}`);
+  return res.data.data;
 }
 
 // --- Repo Config API ---
 
-export async function getRepoConfigs(): Promise<RepoConfig[]> {
-  const res = await apiFetch<RepoConfig[]>("/repo-config");
-  return res.data;
+export async function getRepoConfigs(params?: ListParams): Promise<RepoConfig[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<RepoConfig>>(`/repo-config?${query.toString()}`);
+  return res.data.data;
 }
 
 export async function createRepoConfig(
@@ -415,9 +478,11 @@ export async function generateFindingsAnalysis(): Promise<{
 
 // --- Threat-modeling projects (AI vuln pipeline) ---
 
-export async function getProjects(): Promise<Project[]> {
-  const res = await apiFetch<Project[]>("/project");
-  return res.data;
+export async function getProjects(params?: ListParams): Promise<Project[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<Project>>(`/project?${query.toString()}`);
+  return res.data.data;
 }
 
 export async function getProject(id: string): Promise<Project> {
@@ -498,9 +563,14 @@ export async function processProjectRun(
   return res.data;
 }
 
-export async function getProjectRuns(projectId: string): Promise<ProjectRun[]> {
-  const res = await apiFetch<ProjectRun[]>(
-    `/project/${encodeURIComponent(projectId)}/runs`,
+export async function getProjectRuns(
+  projectId: string,
+  params?: ListParams,
+): Promise<ProjectRun[]> {
+  const query = new URLSearchParams();
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<ProjectRun>>(
+    `/project/${encodeURIComponent(projectId)}/runs?${query.toString()}`,
   );
-  return res.data;
+  return res.data.data;
 }

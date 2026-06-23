@@ -4,9 +4,11 @@ import type {
   GithubReviewJobActivity,
   GetJobsParams,
   JobStatus,
+  PaginationMeta,
 } from "../types/job.types";
 import {
   getJobs,
+  getJobsPaginated,
   processPendingJob,
   deleteJob,
   processJobById,
@@ -15,6 +17,7 @@ import {
   updateSummaryPages,
   generateFindingsAnalysis,
 } from "../api/jobApi";
+import Pagination from "../components/Pagination";
 import ActivityModal from "../components/ActivityModal";
 import CreateJobModal from "../components/CreateJobModal";
 import ProcessJobModal from "../components/ProcessJobModal";
@@ -33,6 +36,9 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Partial<GithubReviewJob>[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<GetJobsParams>({});
+  const [page, setPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(20);
+  const [pageMeta, setPageMeta] = useState<PaginationMeta | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   // Activity modal state
@@ -85,18 +91,24 @@ export default function JobsPage() {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getJobs(filters);
-      setJobs(data);
+      const result = await getJobsPaginated({ ...filters, page, limit: pageLimit });
+      setJobs(result.data);
+      setPageMeta(result.pagination);
     } catch (err) {
       showToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
-  }, [filters, showToast]);
+  }, [filters, page, pageLimit, showToast]);
 
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  // Reset to the first page whenever filters change (the result set is different).
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
 
   // Close the actions overflow menu on outside click or Escape.
   useEffect(() => {
@@ -573,11 +585,15 @@ export default function JobsPage() {
           </table>
         </div>
 
-        {!loading && jobs.length > 0 && (
-          <div className="jobs-count">
-            {jobs.length} job{jobs.length !== 1 ? "s" : ""}
-          </div>
-        )}
+        <Pagination
+          meta={pageMeta}
+          disabled={loading}
+          onPageChange={setPage}
+          onLimitChange={(limit) => {
+            setPageLimit(limit);
+            setPage(1);
+          }}
+        />
       </div>
 
       {/* Modals */}

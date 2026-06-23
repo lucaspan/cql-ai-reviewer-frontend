@@ -222,6 +222,29 @@ export interface RepoConfig {
   updatedAt: string;
 }
 
+// --- Pagination (backend standard) ---
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+export interface ListParams {
+  page?: number;
+  limit?: number;
+  orderBy?: string;
+  order?: "ASC" | "DESC";
+}
+
 // --- Threat-modeling projects (AI vuln pipeline) ---
 
 export type ProjectRunStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
