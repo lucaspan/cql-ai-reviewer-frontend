@@ -461,6 +461,22 @@ export async function updateSummaryPages(): Promise<{
   return res.data;
 }
 
+export async function refreshPagePermissions(
+  repos?: Array<{ githubOwner: string; githubRepo: string }>,
+): Promise<{
+  refreshed: Array<{ repo: string; pageId: string }>;
+  skipped: Array<{ repo: string; reason: string }>;
+}> {
+  const res = await apiFetch<{
+    refreshed: Array<{ repo: string; pageId: string }>;
+    skipped: Array<{ repo: string; reason: string }>;
+  }>("/job/refresh-permissions", {
+    method: "POST",
+    body: JSON.stringify(repos && repos.length > 0 ? { repos } : {}),
+  });
+  return res.data;
+}
+
 export async function generateFindingsAnalysis(): Promise<{
   generated: boolean;
   piiRepoCount?: number;

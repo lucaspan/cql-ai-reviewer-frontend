@@ -16,6 +16,7 @@ import {
   pollSqs,
   updateSummaryPages,
   generateFindingsAnalysis,
+  refreshPagePermissions,
 } from "../api/jobApi";
 import Pagination from "../components/Pagination";
 import ActivityModal from "../components/ActivityModal";
@@ -67,6 +68,7 @@ export default function JobsPage() {
 
   const [summaryRefreshing, setSummaryRefreshing] = useState(false);
   const [analysisGenerating, setAnalysisGenerating] = useState(false);
+  const [permissionsRefreshing, setPermissionsRefreshing] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   const hasActiveFilters = Boolean(
@@ -190,6 +192,21 @@ export default function JobsPage() {
       showToast((err as Error).message, "error");
     } finally {
       setSummaryRefreshing(false);
+    }
+  };
+
+  const handleRefreshPermissions = async () => {
+    setPermissionsRefreshing(true);
+    try {
+      const result = await refreshPagePermissions();
+      showToast(
+        `Page permissions refreshed: ${result.refreshed.length} ok, ${result.skipped.length} skipped`,
+        result.skipped.length > 0 ? "info" : "success",
+      );
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    } finally {
+      setPermissionsRefreshing(false);
     }
   };
 
@@ -425,6 +442,24 @@ export default function JobsPage() {
                     </span>
                     <span className="actions-menu__hint">
                       Rebuild the Confluence rollup pages
+                    </span>
+                  </button>
+                  <button
+                    className="actions-menu__item"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleRefreshPermissions();
+                    }}
+                    disabled={permissionsRefreshing}
+                  >
+                    <span className="actions-menu__label">
+                      {permissionsRefreshing
+                        ? "Refreshing Permissions…"
+                        : "Refresh Page Permissions"}
+                    </span>
+                    <span className="actions-menu__hint">
+                      Re-apply viewer access to published pages
                     </span>
                   </button>
                   <button

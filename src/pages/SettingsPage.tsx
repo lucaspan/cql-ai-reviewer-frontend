@@ -53,6 +53,11 @@ interface SummaryFindingsSetting {
   performanceAnalysis: FindingsAnalysisValue | null;
 }
 
+interface AppCatPermissionSetting {
+  // appCatId (trailing "_<digits>" of a repo name) -> emails granted VIEW access.
+  appCatEmails: Record<string, string[]>;
+}
+
 const BEDROCK_MODELS = [
   { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5" },
   { id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Sonnet 4.5" },
@@ -68,6 +73,8 @@ export default function SettingsPage() {
     useState<ModelRoutingSetting | null>(null);
   const [summarySetting, setSummarySetting] =
     useState<SummaryFindingsSetting | null>(null);
+  const [appCatSetting, setAppCatSetting] =
+    useState<AppCatPermissionSetting | null>(null);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,16 +103,19 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [schedulerRes, creationRes, routingRes, summaryRes] = await Promise.all([
-        getSetting("JOB_SCHEDULER_SETTING"),
-        getSetting("JOB_CREATION_SETTING"),
-        getSetting("MODEL_ROUTING_SETTING"),
-        getSetting("SUMMARY_FINDINGS_SETTING"),
-      ]);
+      const [schedulerRes, creationRes, routingRes, summaryRes, appCatRes] =
+        await Promise.all([
+          getSetting("JOB_SCHEDULER_SETTING"),
+          getSetting("JOB_CREATION_SETTING"),
+          getSetting("MODEL_ROUTING_SETTING"),
+          getSetting("SUMMARY_FINDINGS_SETTING"),
+          getSetting("APP_CAT_PERMISSION_SETTING"),
+        ]);
       setSetting(schedulerRes.value as unknown as JobSchedulerSetting);
       setCreationSetting(creationRes.value as unknown as JobCreationSetting);
       setRoutingSetting(routingRes.value as unknown as ModelRoutingSetting);
       setSummarySetting(summaryRes.value as unknown as SummaryFindingsSetting);
+      setAppCatSetting(appCatRes.value as unknown as AppCatPermissionSetting);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -191,6 +201,73 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveAppCatSetting = async (updated: AppCatPermissionSetting) => {
+    setAppCatSetting(updated);
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      await updateSetting(
+        "APP_CAT_PERMISSION_SETTING",
+        updated as unknown as Record<string, unknown>,
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+      loadSettings();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // appCatId mapping editor: add an id, add/remove an email under an id, remove an id.
+  const [appCatIdInput, setAppCatIdInput] = useState("");
+  const [appCatEmailInputs, setAppCatEmailInputs] = useState<Record<string, string>>({});
+
+  const addAppCatId = () => {
+    if (!appCatSetting) return;
+    const id = appCatIdInput.trim();
+    if (!id || appCatSetting.appCatEmails[id]) return;
+    saveAppCatSetting({
+      ...appCatSetting,
+      appCatEmails: { ...appCatSetting.appCatEmails, [id]: [] },
+    });
+    setAppCatIdInput("");
+  };
+
+  const removeAppCatId = (id: string) => {
+    if (!appCatSetting) return;
+    const next = { ...appCatSetting.appCatEmails };
+    delete next[id];
+    saveAppCatSetting({ ...appCatSetting, appCatEmails: next });
+  };
+
+  const addAppCatEmail = (id: string) => {
+    if (!appCatSetting) return;
+    const email = (appCatEmailInputs[id] ?? "").trim();
+    if (!email || (appCatSetting.appCatEmails[id] ?? []).includes(email)) return;
+    saveAppCatSetting({
+      ...appCatSetting,
+      appCatEmails: {
+        ...appCatSetting.appCatEmails,
+        [id]: [...(appCatSetting.appCatEmails[id] ?? []), email],
+      },
+    });
+    setAppCatEmailInputs((prev) => ({ ...prev, [id]: "" }));
+  };
+
+  const removeAppCatEmail = (id: string, email: string) => {
+    if (!appCatSetting) return;
+    saveAppCatSetting({
+      ...appCatSetting,
+      appCatEmails: {
+        ...appCatSetting.appCatEmails,
+        [id]: (appCatSetting.appCatEmails[id] ?? []).filter((e) => e !== email),
+      },
+    });
   };
 
   const [summaryBranchInput, setSummaryBranchInput] = useState("");
@@ -939,6 +1016,92 @@ export default function SettingsPage() {
             ) : (
               <div className="settings-analysis-result__meta">Not generated yet</div>
             )}
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-card">
+        <h3 className="settings-card__title">App Catalog Permissions</h3>
+        <p className="settings-card__desc">
+          Repos whose name ends with <code>_&lt;number&gt;</code> use that number as
+          their App Catalog ID. Emails mapped to an ID are added as{" "}
+          <strong>viewers</strong> on that repo's Confluence pages. After editing,
+          run "Refresh Page Permissions" to re-apply to existing pages.
+        </p>
+
+        {appCatSetting &&
+          Object.keys(appCatSetting.appCatEmails).length === 0 && (
+            <p className="settings-hint">No App Catalog IDs configured yet.</p>
+          )}
+
+        {appCatSetting &&
+          Object.entries(appCatSetting.appCatEmails).map(([id, emails]) => (
+            <div key={id} className="settings-section">
+              <div className="create-job-section__header">
+                <label className="form-label">
+                  App Cat ID <code>{id}</code>
+                </label>
+                <button
+                  className="btn btn--danger btn--sm"
+                  onClick={() => removeAppCatId(id)}
+                  disabled={saving}
+                >
+                  Remove ID
+                </button>
+              </div>
+              <div className="settings-list">
+                {emails.map((email) => (
+                  <div key={email} className="settings-list-item">
+                    <code>{email}</code>
+                    <button
+                      className="btn btn--danger btn--sm"
+                      onClick={() => removeAppCatEmail(id, email)}
+                      disabled={saving}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="settings-add-row">
+                <input
+                  className="form-input"
+                  placeholder="viewer@company.com"
+                  value={appCatEmailInputs[id] ?? ""}
+                  onChange={(e) =>
+                    setAppCatEmailInputs((prev) => ({ ...prev, [id]: e.target.value }))
+                  }
+                  onKeyDown={(e) => e.key === "Enter" && addAppCatEmail(id)}
+                />
+                <button
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => addAppCatEmail(id)}
+                  disabled={saving || !(appCatEmailInputs[id] ?? "").trim()}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          ))}
+
+        <div className="settings-section">
+          <label className="form-label">Add App Catalog ID</label>
+          <p className="settings-hint">The numeric suffix, e.g. <code>12345</code></p>
+          <div className="settings-add-row">
+            <input
+              className="form-input"
+              placeholder="12345"
+              value={appCatIdInput}
+              onChange={(e) => setAppCatIdInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addAppCatId()}
+            />
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={addAppCatId}
+              disabled={saving || !appCatIdInput.trim()}
+            >
+              Add ID
+            </button>
           </div>
         </div>
       </div>
