@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { getJobs } from "../api/jobApi";
-import type { GithubReviewJob, ReviewMetrics } from "../types/job.types";
+import type {
+  GithubReviewJob,
+  ReviewMetrics,
+  PaginationMeta,
+} from "../types/job.types";
+import Pagination from "../components/Pagination";
 import "./MetricsPage.css";
 
 interface JobWithMetrics {
@@ -16,6 +21,9 @@ interface JobWithMetrics {
 export default function MetricsPage() {
   const [jobs, setJobs] = useState<JobWithMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  // Client-side pagination of the table only; summary cards stay aggregated over all rows.
+  const [page, setPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(20);
 
   useEffect(() => {
     loadMetrics();
@@ -60,6 +68,22 @@ export default function MetricsPage() {
   const costMonth = jobsWithMetrics
     .filter((j) => now - new Date(j.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000)
     .reduce((sum, j) => sum + (j.metrics?.totalCost ?? 0), 0);
+
+  // Page the table client-side over the full in-memory list.
+  const totalPages = Math.max(1, Math.ceil(jobsWithMetrics.length / pageLimit));
+  const safePage = Math.min(page, totalPages);
+  const pagedJobs = jobsWithMetrics.slice(
+    (safePage - 1) * pageLimit,
+    safePage * pageLimit,
+  );
+  const pageMeta: PaginationMeta = {
+    page: safePage,
+    limit: pageLimit,
+    total: jobsWithMetrics.length,
+    totalPages,
+    hasNext: safePage < totalPages,
+    hasPrevious: safePage > 1,
+  };
 
   const formatCost = (cost: number) => `$${cost.toFixed(4)}`;
   const formatTokens = (tokens: number) =>
@@ -129,7 +153,7 @@ export default function MetricsPage() {
                 </td>
               </tr>
             )}
-            {jobsWithMetrics.map((job) => (
+            {pagedJobs.map((job) => (
               <tr key={job.id}>
                 <td>
                   <span className="metrics-repo" title={job.githubRepo}>
@@ -155,6 +179,17 @@ export default function MetricsPage() {
           </tbody>
         </table>
       </div>
+
+      {jobsWithMetrics.length > 0 && (
+        <Pagination
+          meta={pageMeta}
+          onPageChange={setPage}
+          onLimitChange={(limit) => {
+            setPageLimit(limit);
+            setPage(1);
+          }}
+        />
+      )}
     </div>
   );
 }
