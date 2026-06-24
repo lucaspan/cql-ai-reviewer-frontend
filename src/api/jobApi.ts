@@ -103,6 +103,40 @@ export async function createJob(
   return res.data;
 }
 
+/**
+ * Create a review job from an uploaded .zip and start it immediately.
+ * Sends multipart/form-data — do NOT set Content-Type (the browser adds the
+ * boundary), so this bypasses the JSON apiFetch helper.
+ */
+export async function createJobFromZip(params: {
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch: string;
+  reviewJobType?: string;
+  commitHash?: string;
+  file: File;
+}): Promise<CreateJobResult> {
+  const fd = new FormData();
+  fd.append("githubOwner", params.githubOwner);
+  fd.append("githubRepo", params.githubRepo);
+  fd.append("githubBranch", params.githubBranch);
+  if (params.reviewJobType) fd.append("reviewJobType", params.reviewJobType);
+  if (params.commitHash) fd.append("commitHash", params.commitHash);
+  fd.append("zip", params.file);
+
+  const res = await fetch(`${BASE_URL}/job/from-zip`, {
+    method: "POST",
+    headers: { "x-internal-api-key": API_KEY },
+    body: fd,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  const json = (await res.json()) as JDevApiResponse<CreateJobResult>;
+  return json.data;
+}
+
 export async function processPendingJob(): Promise<ProcessJobResult> {
   const res = await apiFetch<ProcessJobResult>("/job/process-pending", {
     method: "POST",

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { createJob, getJobTypes } from "../api/jobApi";
+import { createJob, createJobFromZip, getJobTypes } from "../api/jobApi";
 import type { DependentRepo, ReviewJobType } from "../types/job.types";
 import "./Modal.css";
 import "./CreateJobModal.css";
+
+type SourceMode = "github" | "zip";
 
 interface InitialJobData {
   githubOwner?: string;
@@ -37,6 +39,9 @@ export default function CreateJobModal({
   );
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [sourceMode, setSourceMode] = useState<SourceMode>("github");
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipCommit, setZipCommit] = useState("");
 
   useEffect(() => {
     getJobTypes().then(setJobTypes).catch(() => {});
@@ -65,19 +70,35 @@ export default function CreateJobModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sourceMode === "zip" && !zipFile) {
+      onError("Please choose a .zip file to upload");
+      return;
+    }
     setSubmitting(true);
     try {
-      const validDeps = dependentRepos.filter(
-        (d) => d.githubOwner && d.githubRepo && d.githubBranch,
-      );
-      const result = await createJob({
-        githubOwner: form.githubOwner,
-        githubRepo: form.githubRepo,
-        githubBranch: form.githubBranch,
-        dedupKey: form.dedupKey || undefined,
-        reviewJobType: form.reviewJobType || undefined,
-        dependentRepos: validDeps.length > 0 ? validDeps : undefined,
-      });
+      let result;
+      if (sourceMode === "zip") {
+        result = await createJobFromZip({
+          githubOwner: form.githubOwner,
+          githubRepo: form.githubRepo,
+          githubBranch: form.githubBranch,
+          reviewJobType: form.reviewJobType || undefined,
+          commitHash: zipCommit.trim() || undefined,
+          file: zipFile!,
+        });
+      } else {
+        const validDeps = dependentRepos.filter(
+          (d) => d.githubOwner && d.githubRepo && d.githubBranch,
+        );
+        result = await createJob({
+          githubOwner: form.githubOwner,
+          githubRepo: form.githubRepo,
+          githubBranch: form.githubBranch,
+          dedupKey: form.dedupKey || undefined,
+          reviewJobType: form.reviewJobType || undefined,
+          dependentRepos: validDeps.length > 0 ? validDeps : undefined,
+        });
+      }
       if (result.created) {
         onCreated(result.jobId);
       } else {
@@ -101,6 +122,73 @@ export default function CreateJobModal({
         </div>
 
         <form className="modal__body" onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label className="form-label">Source</label>
+            <div className="batch-job-types">
+              <label className="batch-job-type-chip">
+                <input
+                  type="radio"
+                  name="sourceMode"
+                  checked={sourceMode === "github"}
+                  onChange={() => setSourceMode("github")}
+                />
+                <span>Clone from GitHub</span>
+              </label>
+              <label className="batch-job-type-chip">
+                <input
+                  type="radio"
+                  name="sourceMode"
+                  checked={sourceMode === "zip"}
+                  onChange={() => setSourceMode("zip")}
+                />
+                <span>Upload .zip</span>
+              </label>
+            </div>
+            {sourceMode === "zip" && (
+              <p className="form-optional" style={{ marginTop: 6 }}>
+                For repos the GitHub token can't access. Owner/repo/branch are used as
+                labels (the page still groups with that repo). Reviewed in full-repo
+                mode and started immediately.
+              </p>
+            )}
+          </div>
+
+          {sourceMode === "zip" && (
+            <>
+              <div className="form-field">
+                <label className="form-label">Source .zip *</label>
+                <div className="file-picker">
+                  <label className="btn btn--secondary btn--sm file-picker__btn">
+                    Choose file
+                    <input
+                      type="file"
+                      accept=".zip"
+                      className="file-picker__input"
+                      onChange={(e) => setZipFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <span className="file-picker__name">
+                    {zipFile
+                      ? `${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(1)} MB)`
+                      : "No file chosen"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="form-field">
+                <label className="form-label">
+                  Commit Hash <span className="form-optional">(optional)</span>
+                </label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. a1b2c3d (recorded for traceability)"
+                  value={zipCommit}
+                  onChange={(e) => setZipCommit(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
           <div className="create-job-grid">
             <div className="form-field">
               <label className="form-label">GitHub Owner *</label>
@@ -160,20 +248,23 @@ export default function CreateJobModal({
             </div>
           </div>
 
-          <div className="form-field">
-            <label className="form-label">
-              Dedup Key <span className="form-optional">(optional)</span>
-            </label>
-            <input
-              className="form-input"
-              placeholder="Auto-generated if empty"
-              value={form.dedupKey}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, dedupKey: e.target.value }))
-              }
-            />
-          </div>
+          {sourceMode === "github" && (
+            <div className="form-field">
+              <label className="form-label">
+                Dedup Key <span className="form-optional">(optional)</span>
+              </label>
+              <input
+                className="form-input"
+                placeholder="Auto-generated if empty"
+                value={form.dedupKey}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, dedupKey: e.target.value }))
+                }
+              />
+            </div>
+          )}
 
+          {sourceMode === "github" && (
           <div className="create-job-section">
             <div className="create-job-section__header">
               <label className="form-label">
@@ -233,6 +324,7 @@ export default function CreateJobModal({
               </div>
             ))}
           </div>
+          )}
 
           <div className="modal__footer">
             <button
