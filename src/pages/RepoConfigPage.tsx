@@ -192,10 +192,14 @@ export default function RepoConfigPage() {
     const confluenceEmails =
       !emailsRaw || isNullToken(emailsRaw)
         ? null
-        : emailsRaw
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
+        : [
+            ...new Set(
+              emailsRaw
+                .split(",")
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean),
+            ),
+          ];
 
     return {
       ok: true,
@@ -684,10 +688,14 @@ function RepoConfigForm({
     e.preventDefault();
     setSubmitting(true);
     try {
-      const emails = form.confluenceEmails
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const emails = [
+        ...new Set(
+          form.confluenceEmails
+            .split(",")
+            .map((s) => s.trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      ];
       await onSave({
         githubOwner: form.githubOwner,
         githubRepo: form.githubRepo,

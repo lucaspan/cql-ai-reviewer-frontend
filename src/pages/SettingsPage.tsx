@@ -65,6 +65,40 @@ const BEDROCK_MODELS = [
   { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Haiku 4.5" },
 ];
 
+/** Lowercase + trim a single email. */
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+/**
+ * Parse a free-text blob of emails (newline/comma/space separated) into a
+ * normalized, de-duplicated list. Used by the single-add inputs and batch paste.
+ */
+const parseEmails = (raw: string): string[] => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const token of raw.split(/[\s,;]+/)) {
+    const email = normalizeEmail(token);
+    if (email && !seen.has(email)) {
+      seen.add(email);
+      out.push(email);
+    }
+  }
+  return out;
+};
+
+/** Merge new emails into an existing list, lowercased and de-duplicated. */
+const mergeEmails = (existing: string[], incoming: string[]): string[] => {
+  const seen = new Set(existing.map(normalizeEmail));
+  const merged = [...existing.map(normalizeEmail)];
+  for (const email of incoming) {
+    const norm = normalizeEmail(email);
+    if (norm && !seen.has(norm)) {
+      seen.add(norm);
+      merged.push(norm);
+    }
+  }
+  return merged;
+};
+
 export default function SettingsPage() {
   const [setting, setSetting] = useState<JobSchedulerSetting | null>(null);
   const [creationSetting, setCreationSetting] =
@@ -247,13 +281,13 @@ export default function SettingsPage() {
 
   const addAppCatEmail = (id: string) => {
     if (!appCatSetting) return;
-    const email = (appCatEmailInputs[id] ?? "").trim();
-    if (!email || (appCatSetting.appCatEmails[id] ?? []).includes(email)) return;
+    const incoming = parseEmails(appCatEmailInputs[id] ?? "");
+    if (incoming.length === 0) return;
     saveAppCatSetting({
       ...appCatSetting,
       appCatEmails: {
         ...appCatSetting.appCatEmails,
-        [id]: [...(appCatSetting.appCatEmails[id] ?? []), email],
+        [id]: mergeEmails(appCatSetting.appCatEmails[id] ?? [], incoming),
       },
     });
     setAppCatEmailInputs((prev) => ({ ...prev, [id]: "" }));
@@ -268,6 +302,29 @@ export default function SettingsPage() {
         [id]: (appCatSetting.appCatEmails[id] ?? []).filter((e) => e !== email),
       },
     });
+  };
+
+  // Batch add: one "appCatId: email1, email2" per line. Merges into existing IDs,
+  // lowercasing + de-duplicating emails; creates IDs that don't exist yet.
+  const [appCatBatchOpen, setAppCatBatchOpen] = useState(false);
+  const [appCatBatchText, setAppCatBatchText] = useState("");
+
+  const applyAppCatBatch = () => {
+    if (!appCatSetting) return;
+    const next: Record<string, string[]> = { ...appCatSetting.appCatEmails };
+    for (const line of appCatBatchText.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const sep = trimmed.search(/[:\s,;]/);
+      if (sep === -1) continue;
+      const id = trimmed.slice(0, sep).trim();
+      const emails = parseEmails(trimmed.slice(sep + 1));
+      if (!id || emails.length === 0) continue;
+      next[id] = mergeEmails(next[id] ?? [], emails);
+    }
+    saveAppCatSetting({ ...appCatSetting, appCatEmails: next });
+    setAppCatBatchText("");
+    setAppCatBatchOpen(false);
   };
 
   const [summaryBranchInput, setSummaryBranchInput] = useState("");
@@ -355,15 +412,15 @@ export default function SettingsPage() {
   const [emailInput, setEmailInput] = useState("");
 
   const addEmail = () => {
-    if (!creationSetting || !emailInput.trim()) return;
-    const email = emailInput.trim();
-    if (creationSetting.defaultConfluenceEmails.includes(email)) return;
+    if (!creationSetting) return;
+    const incoming = parseEmails(emailInput);
+    if (incoming.length === 0) return;
     saveCreationSetting({
       ...creationSetting,
-      defaultConfluenceEmails: [
-        ...creationSetting.defaultConfluenceEmails,
-        email,
-      ],
+      defaultConfluenceEmails: mergeEmails(
+        creationSetting.defaultConfluenceEmails,
+        incoming,
+      ),
     });
     setEmailInput("");
   };
@@ -1028,6 +1085,44 @@ export default function SettingsPage() {
           <strong>viewers</strong> on that repo's Confluence pages. After editing,
           run "Refresh Page Permissions" to re-apply to existing pages.
         </p>
+
+        <div className="settings-section">
+          <div className="create-job-section__header">
+            <label className="form-label">Batch Add</label>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => setAppCatBatchOpen((v) => !v)}
+              disabled={saving || !appCatSetting}
+            >
+              {appCatBatchOpen ? "Cancel" : "Batch Add"}
+            </button>
+          </div>
+          {appCatBatchOpen && (
+            <>
+              <p className="settings-hint">
+                One per line: <code>appCatId: email1, email2</code>. Emails are
+                lowercased and de-duplicated; existing IDs are merged.
+              </p>
+              <textarea
+                className="form-input"
+                rows={5}
+                placeholder={"12345: a@bmo.com, b@bmo.com\n67890: team@bmo.com"}
+                value={appCatBatchText}
+                onChange={(e) => setAppCatBatchText(e.target.value)}
+                style={{ fontFamily: "monospace", fontSize: 12 }}
+              />
+              <div className="settings-add-row">
+                <button
+                  className="btn btn--primary btn--sm"
+                  onClick={applyAppCatBatch}
+                  disabled={saving || !appCatBatchText.trim()}
+                >
+                  Apply Batch
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
         {appCatSetting &&
           Object.keys(appCatSetting.appCatEmails).length === 0 && (
