@@ -294,3 +294,12 @@ export interface ProjectRun {
   updatedAt: string;
   stages?: ProjectRunStage[];
 }
+
+export interface AppCatPermission {
+  id: string;
+  appCatId: string;
+  stoEmails: string[];
+  managerEmails: string[];
+  createdAt: string;
+  updatedAt: string;
+}

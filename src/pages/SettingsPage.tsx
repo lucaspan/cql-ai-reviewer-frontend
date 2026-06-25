@@ -4,8 +4,11 @@ import {
   updateSetting,
   getJobTypes,
   getSourceRepos,
+  getAppCatPermissions,
+  upsertAppCatPermission,
+  deleteAppCatPermission,
 } from "../api/jobApi";
-import type { ReviewJobType } from "../types/job.types";
+import type { ReviewJobType, AppCatPermission } from "../types/job.types";
 import "./SettingsPage.css";
 
 interface JobSchedulerSetting {
@@ -51,11 +54,6 @@ interface SummaryFindingsSetting {
   analysisPrompt: string;
   piiAnalysis: FindingsAnalysisValue | null;
   performanceAnalysis: FindingsAnalysisValue | null;
-}
-
-interface AppCatPermissionSetting {
-  // appCatId (trailing "_<digits>" of a repo name) -> emails granted VIEW access.
-  appCatEmails: Record<string, string[]>;
 }
 
 const BEDROCK_MODELS = [
@@ -107,8 +105,7 @@ export default function SettingsPage() {
     useState<ModelRoutingSetting | null>(null);
   const [summarySetting, setSummarySetting] =
     useState<SummaryFindingsSetting | null>(null);
-  const [appCatSetting, setAppCatSetting] =
-    useState<AppCatPermissionSetting | null>(null);
+  const [appCatRows, setAppCatRows] = useState<AppCatPermission[]>([]);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -137,19 +134,19 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [schedulerRes, creationRes, routingRes, summaryRes, appCatRes] =
+      const [schedulerRes, creationRes, routingRes, summaryRes, appCatData] =
         await Promise.all([
           getSetting("JOB_SCHEDULER_SETTING"),
           getSetting("JOB_CREATION_SETTING"),
           getSetting("MODEL_ROUTING_SETTING"),
           getSetting("SUMMARY_FINDINGS_SETTING"),
-          getSetting("APP_CAT_PERMISSION_SETTING"),
+          getAppCatPermissions(),
         ]);
       setSetting(schedulerRes.value as unknown as JobSchedulerSetting);
       setCreationSetting(creationRes.value as unknown as JobCreationSetting);
       setRoutingSetting(routingRes.value as unknown as ModelRoutingSetting);
       setSummarySetting(summaryRes.value as unknown as SummaryFindingsSetting);
-      setAppCatSetting(appCatRes.value as unknown as AppCatPermissionSetting);
+      setAppCatRows(appCatData);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -237,94 +234,117 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAppCatSetting = async (updated: AppCatPermissionSetting) => {
-    setAppCatSetting(updated);
+  const reloadAppCat = async () => {
+    try {
+      setAppCatRows(await getAppCatPermissions());
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const saveAppCatRow = async (appCatId: string, stoEmails: string[], managerEmails: string[]) => {
     setSaving(true);
     setSaved(false);
     setError(null);
     try {
-      await updateSetting(
-        "APP_CAT_PERMISSION_SETTING",
-        updated as unknown as Record<string, unknown>,
-      );
+      await upsertAppCatPermission({ appCatId, stoEmails, managerEmails });
+      await reloadAppCat();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setError((err as Error).message);
-      loadSettings();
     } finally {
       setSaving(false);
     }
   };
 
-  // appCatId mapping editor: add an id, add/remove an email under an id, remove an id.
+  // appCat editor state
   const [appCatIdInput, setAppCatIdInput] = useState("");
-  const [appCatEmailInputs, setAppCatEmailInputs] = useState<Record<string, string>>({});
+  const [appCatStoInputs, setAppCatStoInputs] = useState<Record<string, string>>({});
+  const [appCatMgrInputs, setAppCatMgrInputs] = useState<Record<string, string>>({});
 
-  const addAppCatId = () => {
-    if (!appCatSetting) return;
+  const addAppCatId = async () => {
     const id = appCatIdInput.trim();
-    if (!id || appCatSetting.appCatEmails[id]) return;
-    saveAppCatSetting({
-      ...appCatSetting,
-      appCatEmails: { ...appCatSetting.appCatEmails, [id]: [] },
-    });
+    if (!id || appCatRows.some((r) => r.appCatId === id)) return;
+    await saveAppCatRow(id, [], []);
     setAppCatIdInput("");
   };
 
-  const removeAppCatId = (id: string) => {
-    if (!appCatSetting) return;
-    const next = { ...appCatSetting.appCatEmails };
-    delete next[id];
-    saveAppCatSetting({ ...appCatSetting, appCatEmails: next });
+  const removeAppCatId = async (id: string) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await deleteAppCatPermission(id);
+      await reloadAppCat();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const addAppCatEmail = (id: string) => {
-    if (!appCatSetting) return;
-    const incoming = parseEmails(appCatEmailInputs[id] ?? "");
+  const addStoEmail = (row: AppCatPermission) => {
+    const incoming = parseEmails(appCatStoInputs[row.appCatId] ?? "");
     if (incoming.length === 0) return;
-    saveAppCatSetting({
-      ...appCatSetting,
-      appCatEmails: {
-        ...appCatSetting.appCatEmails,
-        [id]: mergeEmails(appCatSetting.appCatEmails[id] ?? [], incoming),
-      },
-    });
-    setAppCatEmailInputs((prev) => ({ ...prev, [id]: "" }));
+    saveAppCatRow(row.appCatId, mergeEmails(row.stoEmails, incoming), row.managerEmails);
+    setAppCatStoInputs((prev) => ({ ...prev, [row.appCatId]: "" }));
   };
 
-  const removeAppCatEmail = (id: string, email: string) => {
-    if (!appCatSetting) return;
-    saveAppCatSetting({
-      ...appCatSetting,
-      appCatEmails: {
-        ...appCatSetting.appCatEmails,
-        [id]: (appCatSetting.appCatEmails[id] ?? []).filter((e) => e !== email),
-      },
-    });
+  const removeStoEmail = (row: AppCatPermission, email: string) => {
+    saveAppCatRow(row.appCatId, row.stoEmails.filter((e) => e !== email), row.managerEmails);
   };
 
-  // Batch add: one "appCatId: email1, email2" per line. Merges into existing IDs,
-  // lowercasing + de-duplicating emails; creates IDs that don't exist yet.
+  const addMgrEmail = (row: AppCatPermission) => {
+    const incoming = parseEmails(appCatMgrInputs[row.appCatId] ?? "");
+    if (incoming.length === 0) return;
+    saveAppCatRow(row.appCatId, row.stoEmails, mergeEmails(row.managerEmails, incoming));
+    setAppCatMgrInputs((prev) => ({ ...prev, [row.appCatId]: "" }));
+  };
+
+  const removeMgrEmail = (row: AppCatPermission, email: string) => {
+    saveAppCatRow(row.appCatId, row.stoEmails, row.managerEmails.filter((e) => e !== email));
+  };
+
   const [appCatBatchOpen, setAppCatBatchOpen] = useState(false);
   const [appCatBatchText, setAppCatBatchText] = useState("");
 
-  const applyAppCatBatch = () => {
-    if (!appCatSetting) return;
-    const next: Record<string, string[]> = { ...appCatSetting.appCatEmails };
-    for (const line of appCatBatchText.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const sep = trimmed.search(/[:\s,;]/);
-      if (sep === -1) continue;
-      const id = trimmed.slice(0, sep).trim();
-      const emails = parseEmails(trimmed.slice(sep + 1));
-      if (!id || emails.length === 0) continue;
-      next[id] = mergeEmails(next[id] ?? [], emails);
+  const applyAppCatBatch = async () => {
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      for (const line of appCatBatchText.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        // Format: appCatId stoEmails managerEmails
+        // Each field separated by whitespace. Emails comma-separated. Use "-" for none.
+        const parts = trimmed.split(/\s+/);
+        if (parts.length < 2) continue;
+        const id = parts[0];
+        const stoRaw = parts[1] ?? "-";
+        const mgrRaw = parts[2] ?? "-";
+        const stoNew = stoRaw === "-" ? [] : parseEmails(stoRaw);
+        const mgrNew = mgrRaw === "-" ? [] : parseEmails(mgrRaw);
+        if (!id) continue;
+        const existing = appCatRows.find((r) => r.appCatId === id);
+        await upsertAppCatPermission({
+          appCatId: id,
+          stoEmails: mergeEmails(existing?.stoEmails ?? [], stoNew),
+          managerEmails: mergeEmails(existing?.managerEmails ?? [], mgrNew),
+        });
+      }
+      await reloadAppCat();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+      setAppCatBatchText("");
+      setAppCatBatchOpen(false);
     }
-    saveAppCatSetting({ ...appCatSetting, appCatEmails: next });
-    setAppCatBatchText("");
-    setAppCatBatchOpen(false);
   };
 
   const [summaryBranchInput, setSummaryBranchInput] = useState("");
@@ -1081,7 +1101,7 @@ export default function SettingsPage() {
         <h3 className="settings-card__title">App Catalog Permissions</h3>
         <p className="settings-card__desc">
           Repos whose name ends with <code>_&lt;number&gt;</code> use that number as
-          their App Catalog ID. Emails mapped to an ID are added as{" "}
+          their App Catalog ID. STO and Manager emails mapped to an ID are added as{" "}
           <strong>viewers</strong> on that repo's Confluence pages. After editing,
           run "Refresh Page Permissions" to re-apply to existing pages.
         </p>
@@ -1092,7 +1112,7 @@ export default function SettingsPage() {
             <button
               className="btn btn--secondary btn--sm"
               onClick={() => setAppCatBatchOpen((v) => !v)}
-              disabled={saving || !appCatSetting}
+              disabled={saving}
             >
               {appCatBatchOpen ? "Cancel" : "Batch Add"}
             </button>
@@ -1100,13 +1120,13 @@ export default function SettingsPage() {
           {appCatBatchOpen && (
             <>
               <p className="settings-hint">
-                One per line: <code>appCatId: email1, email2</code>. Emails are
-                lowercased and de-duplicated; existing IDs are merged.
+                One per line: <code>appCatId stoEmails managerEmails</code>. Use <code>-</code> for none.
+                Emails comma-separated. Lowercased, de-duplicated, merged with existing.
               </p>
               <textarea
                 className="form-input"
                 rows={5}
-                placeholder={"12345: a@bmo.com, b@bmo.com\n67890: team@bmo.com"}
+                placeholder={"12345 sto@bmo.com,sto2@bmo.com mgr@bmo.com\n67890 team@bmo.com -\n99999 - mgr@bmo.com"}
                 value={appCatBatchText}
                 onChange={(e) => setAppCatBatchText(e.target.value)}
                 style={{ fontFamily: "monospace", fontSize: 12 }}
@@ -1124,60 +1144,94 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {appCatSetting &&
-          Object.keys(appCatSetting.appCatEmails).length === 0 && (
-            <p className="settings-hint">No App Catalog IDs configured yet.</p>
-          )}
+        {appCatRows.length === 0 && (
+          <p className="settings-hint">No App Catalog IDs configured yet.</p>
+        )}
 
-        {appCatSetting &&
-          Object.entries(appCatSetting.appCatEmails).map(([id, emails]) => (
-            <div key={id} className="settings-section">
-              <div className="create-job-section__header">
-                <label className="form-label">
-                  App Cat ID <code>{id}</code>
-                </label>
-                <button
-                  className="btn btn--danger btn--sm"
-                  onClick={() => removeAppCatId(id)}
-                  disabled={saving}
-                >
-                  Remove ID
-                </button>
-              </div>
-              <div className="settings-list">
-                {emails.map((email) => (
-                  <div key={email} className="settings-list-item">
-                    <code>{email}</code>
-                    <button
-                      className="btn btn--danger btn--sm"
-                      onClick={() => removeAppCatEmail(id, email)}
-                      disabled={saving}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="settings-add-row">
-                <input
-                  className="form-input"
-                  placeholder="viewer@company.com"
-                  value={appCatEmailInputs[id] ?? ""}
-                  onChange={(e) =>
-                    setAppCatEmailInputs((prev) => ({ ...prev, [id]: e.target.value }))
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && addAppCatEmail(id)}
-                />
-                <button
-                  className="btn btn--secondary btn--sm"
-                  onClick={() => addAppCatEmail(id)}
-                  disabled={saving || !(appCatEmailInputs[id] ?? "").trim()}
-                >
-                  Add
-                </button>
-              </div>
+        {appCatRows.map((row) => (
+          <div key={row.appCatId} className="settings-section">
+            <div className="create-job-section__header">
+              <label className="form-label">
+                App Cat ID <code>{row.appCatId}</code>
+              </label>
+              <button
+                className="btn btn--danger btn--sm"
+                onClick={() => removeAppCatId(row.appCatId)}
+                disabled={saving}
+              >
+                Remove ID
+              </button>
             </div>
-          ))}
+
+            <label className="form-label" style={{ fontSize: 12, marginTop: 8 }}>STO Emails</label>
+            <div className="settings-list">
+              {row.stoEmails.map((email) => (
+                <div key={email} className="settings-list-item">
+                  <code>{email}</code>
+                  <button
+                    className="btn btn--danger btn--sm"
+                    onClick={() => removeStoEmail(row, email)}
+                    disabled={saving}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="settings-add-row">
+              <input
+                className="form-input"
+                placeholder="sto@company.com"
+                value={appCatStoInputs[row.appCatId] ?? ""}
+                onChange={(e) =>
+                  setAppCatStoInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))
+                }
+                onKeyDown={(e) => e.key === "Enter" && addStoEmail(row)}
+              />
+              <button
+                className="btn btn--secondary btn--sm"
+                onClick={() => addStoEmail(row)}
+                disabled={saving || !(appCatStoInputs[row.appCatId] ?? "").trim()}
+              >
+                Add
+              </button>
+            </div>
+
+            <label className="form-label" style={{ fontSize: 12, marginTop: 8 }}>Manager Emails</label>
+            <div className="settings-list">
+              {row.managerEmails.map((email) => (
+                <div key={email} className="settings-list-item">
+                  <code>{email}</code>
+                  <button
+                    className="btn btn--danger btn--sm"
+                    onClick={() => removeMgrEmail(row, email)}
+                    disabled={saving}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="settings-add-row">
+              <input
+                className="form-input"
+                placeholder="manager@company.com"
+                value={appCatMgrInputs[row.appCatId] ?? ""}
+                onChange={(e) =>
+                  setAppCatMgrInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))
+                }
+                onKeyDown={(e) => e.key === "Enter" && addMgrEmail(row)}
+              />
+              <button
+                className="btn btn--secondary btn--sm"
+                onClick={() => addMgrEmail(row)}
+                disabled={saving || !(appCatMgrInputs[row.appCatId] ?? "").trim()}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        ))}
 
         <div className="settings-section">
           <label className="form-label">Add App Catalog ID</label>

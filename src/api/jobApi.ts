@@ -20,6 +20,7 @@ import type {
   Project,
   ProjectRepo,
   ProjectRun,
+  AppCatPermission,
   Paginated,
   ListParams,
 } from "../types/job.types";
@@ -623,4 +624,41 @@ export async function getProjectRuns(
     `/project/${encodeURIComponent(projectId)}/runs?${query.toString()}`,
   );
   return res.data.data;
+}
+
+// --- App Catalog Permissions ---
+
+export async function getAppCatPermissions(): Promise<AppCatPermission[]> {
+  const res = await apiFetch<AppCatPermission[]>("/app-cat");
+  return res.data;
+}
+
+export async function getAppCatPermission(
+  appCatId: string,
+): Promise<AppCatPermission> {
+  const res = await apiFetch<AppCatPermission>(
+    `/app-cat/${encodeURIComponent(appCatId)}`,
+  );
+  return res.data;
+}
+
+export async function upsertAppCatPermission(params: {
+  appCatId: string;
+  stoEmails?: string[];
+  managerEmails?: string[];
+}): Promise<AppCatPermission> {
+  const res = await apiFetch<AppCatPermission>("/app-cat", {
+    method: "PUT",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}
+
+export async function deleteAppCatPermission(
+  appCatId: string,
+): Promise<void> {
+  await apiFetch<{ deleted: boolean }>(
+    `/app-cat/${encodeURIComponent(appCatId)}`,
+    { method: "DELETE" },
+  );
 }
