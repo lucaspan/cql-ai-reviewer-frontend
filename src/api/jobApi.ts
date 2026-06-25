@@ -662,3 +662,20 @@ export async function deleteAppCatPermission(
     { method: "DELETE" },
   );
 }
+
+// --- Dev Tools ---
+
+export async function testModel(params: {
+  prompt: string;
+  modelId: string;
+}): Promise<{ modelId: string; prompt: string; response: string }> {
+  const res = await apiFetch<{
+    modelId: string;
+    prompt: string;
+    response: string;
+  }>("/dev/test-model", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}

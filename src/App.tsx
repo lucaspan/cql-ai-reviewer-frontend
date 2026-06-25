@@ -6,6 +6,7 @@ import ReportsPage from "./pages/ReportsPage";
 import RepoConfigPage from "./pages/RepoConfigPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
+import DevToolsPage from "./pages/DevToolsPage";
 import "./App.css";
 
 type Page =
@@ -15,7 +16,8 @@ type Page =
   | "reports"
   | "repo-config"
   | "projects"
-  | "settings";
+  | "settings"
+  | "dev-tools";
 
 // Nav is grouped into two tiers: WORK (daily, output-producing) and CONFIGURE
 // (occasional setup).
@@ -35,6 +37,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
       { id: "repo-config", label: "Repositories" },
       { id: "job-types", label: "Job Types" },
       { id: "settings", label: "Settings" },
+      { id: "dev-tools", label: "Dev Tools" },
     ],
   },
 ];
@@ -47,6 +50,7 @@ const PAGE_SUBTITLE: Record<Page, string> = {
   "repo-config": "Repositories",
   "job-types": "Job Types",
   settings: "Settings",
+  "dev-tools": "Dev Tools",
 };
 
 function PageShell({ subtitle, children }: { subtitle: string; children: React.ReactNode }) {
@@ -92,6 +96,8 @@ function App() {
         return <PageShell subtitle={PAGE_SUBTITLE.projects}><ProjectsPage /></PageShell>;
       case "settings":
         return <PageShell subtitle={PAGE_SUBTITLE.settings}><SettingsPage /></PageShell>;
+      case "dev-tools":
+        return <PageShell subtitle={PAGE_SUBTITLE["dev-tools"]}><DevToolsPage /></PageShell>;
     }
   };
 
