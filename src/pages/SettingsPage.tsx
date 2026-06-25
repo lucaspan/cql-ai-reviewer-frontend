@@ -34,6 +34,8 @@ interface JobCreationSetting {
 
 interface ModelRoutingSetting {
   enabled: boolean;
+  piModel: string;
+  piTimeoutMinutes: number;
   discoveryModel: string;
   reviewModel: string;
   summaryModel: string;
@@ -57,9 +59,11 @@ interface SummaryFindingsSetting {
 }
 
 const BEDROCK_MODELS = [
+  { id: "us.anthropic.claude-opus-4-7", label: "Opus 4.7" },
+  { id: "us.anthropic.claude-opus-4-6-v1", label: "Opus 4.6" },
   { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5" },
-  { id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Sonnet 4.5" },
   { id: "us.anthropic.claude-sonnet-4-6", label: "Sonnet 4.6" },
+  { id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Sonnet 4.5" },
   { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Haiku 4.5" },
 ];
 
@@ -905,34 +909,65 @@ export default function SettingsPage() {
         </div>
 
         {routingSetting && (
-          <div className="settings-section">
-            <label className="form-label">Phase Model Assignments</label>
-            {(["discoveryModel", "reviewModel", "summaryModel", "diffModel", "inventoryModel"] as const).map((field) => {
-              const labels: Record<string, string> = {
-                discoveryModel: "Discovery (Phase 1)",
-                reviewModel: "Review (Phase 2)",
-                summaryModel: "Summary (Phase 3)",
-                diffModel: "Diff Mode",
-                inventoryModel: "MD Inventory",
-              };
-              return (
-                <div key={field} className="settings-add-row" style={{ marginBottom: 8 }}>
-                  <span style={{ minWidth: 140, fontSize: 13 }}>{labels[field]}</span>
-                  <select
-                    className="form-input"
-                    value={routingSetting[field]}
-                    onChange={(e) => saveRoutingSetting({ ...routingSetting, [field]: e.target.value })}
-                    disabled={saving || !routingSetting.enabled}
-                    style={{ flex: 1 }}
-                  >
-                    {BEDROCK_MODELS.map((m) => (
-                      <option key={m.id} value={m.id}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            <div className="settings-section">
+              <label className="form-label">Default Model &amp; Timeout</label>
+              <div className="settings-add-row" style={{ marginBottom: 8 }}>
+                <span style={{ minWidth: 140, fontSize: 13 }}>Pi Model</span>
+                <select
+                  className="form-input"
+                  value={routingSetting.piModel}
+                  onChange={(e) => saveRoutingSetting({ ...routingSetting, piModel: e.target.value })}
+                  disabled={saving}
+                  style={{ flex: 1 }}
+                >
+                  {BEDROCK_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="settings-add-row" style={{ marginBottom: 8 }}>
+                <span style={{ minWidth: 140, fontSize: 13 }}>Timeout (minutes)</span>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={routingSetting.piTimeoutMinutes}
+                  onChange={(e) => saveRoutingSetting({ ...routingSetting, piTimeoutMinutes: Number(e.target.value) })}
+                  disabled={saving}
+                  style={{ width: 100 }}
+                />
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <label className="form-label">Phase Model Assignments</label>
+              {(["discoveryModel", "reviewModel", "summaryModel", "diffModel", "inventoryModel"] as const).map((field) => {
+                const labels: Record<string, string> = {
+                  discoveryModel: "Discovery (Phase 1)",
+                  reviewModel: "Review (Phase 2)",
+                  summaryModel: "Summary (Phase 3)",
+                  diffModel: "Diff Mode",
+                  inventoryModel: "MD Inventory",
+                };
+                return (
+                  <div key={field} className="settings-add-row" style={{ marginBottom: 8 }}>
+                    <span style={{ minWidth: 140, fontSize: 13 }}>{labels[field]}</span>
+                    <select
+                      className="form-input"
+                      value={routingSetting[field]}
+                      onChange={(e) => saveRoutingSetting({ ...routingSetting, [field]: e.target.value })}
+                      disabled={saving || !routingSetting.enabled}
+                      style={{ flex: 1 }}
+                    >
+                      {BEDROCK_MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
