@@ -1,5 +1,5 @@
 .settings-content {
-  max-width: 640px;
+  max-width: 960px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -261,4 +261,152 @@
 .settings-analysis-result__meta {
   font-size: 12px;
   color: #6b7280;
+}
+
+/* App Catalog Permissions table */
+.settings-card--wide {
+  max-width: none;
+}
+
+.appcat-table-wrapper {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.appcat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.appcat-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding: 8px 10px;
+  border-bottom: 2px solid #f0f0f3;
+  white-space: nowrap;
+}
+
+.appcat-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.appcat-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.appcat-table__id {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.appcat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.appcat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.appcat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-family: monospace;
+  line-height: 1.4;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appcat-chip--viewer {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.appcat-chip__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+  color: #9ca3af;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.appcat-chip__remove:hover:not(:disabled) {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.appcat-chip__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.appcat-add {
+  display: flex;
+  gap: 4px;
+}
+
+.appcat-add__input {
+  width: 100%;
+  min-width: 100px;
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #374151;
+  background: #fafafa;
+  transition: border-color 0.15s;
+}
+
+.appcat-add__input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: white;
+}
+
+.appcat-add__input::placeholder {
+  color: #c0c5cc;
+}
+
+.appcat-row-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #9ca3af;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.appcat-row-delete:hover:not(:disabled) {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.appcat-row-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }

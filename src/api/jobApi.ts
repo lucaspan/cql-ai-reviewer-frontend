@@ -646,6 +646,7 @@ export async function upsertAppCatPermission(params: {
   appCatId: string;
   stoEmails?: string[];
   managerEmails?: string[];
+  viewerEmails?: string[];
 }): Promise<AppCatPermission> {
   const res = await apiFetch<AppCatPermission>("/app-cat", {
     method: "PUT",

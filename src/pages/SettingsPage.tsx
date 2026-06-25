@@ -246,12 +246,12 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAppCatRow = async (appCatId: string, stoEmails: string[], managerEmails: string[]) => {
+  const saveAppCatRow = async (appCatId: string, stoEmails: string[], managerEmails: string[], viewerEmails: string[]) => {
     setSaving(true);
     setSaved(false);
     setError(null);
     try {
-      await upsertAppCatPermission({ appCatId, stoEmails, managerEmails });
+      await upsertAppCatPermission({ appCatId, stoEmails, managerEmails, viewerEmails });
       await reloadAppCat();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -270,7 +270,7 @@ export default function SettingsPage() {
   const addAppCatId = async () => {
     const id = appCatIdInput.trim();
     if (!id || appCatRows.some((r) => r.appCatId === id)) return;
-    await saveAppCatRow(id, [], []);
+    await saveAppCatRow(id, [], [], []);
     setAppCatIdInput("");
   };
 
@@ -292,23 +292,36 @@ export default function SettingsPage() {
   const addStoEmail = (row: AppCatPermission) => {
     const incoming = parseEmails(appCatStoInputs[row.appCatId] ?? "");
     if (incoming.length === 0) return;
-    saveAppCatRow(row.appCatId, mergeEmails(row.stoEmails, incoming), row.managerEmails);
+    saveAppCatRow(row.appCatId, mergeEmails(row.stoEmails, incoming), row.managerEmails, row.viewerEmails ?? []);
     setAppCatStoInputs((prev) => ({ ...prev, [row.appCatId]: "" }));
   };
 
   const removeStoEmail = (row: AppCatPermission, email: string) => {
-    saveAppCatRow(row.appCatId, row.stoEmails.filter((e) => e !== email), row.managerEmails);
+    saveAppCatRow(row.appCatId, row.stoEmails.filter((e) => e !== email), row.managerEmails, row.viewerEmails ?? []);
   };
 
   const addMgrEmail = (row: AppCatPermission) => {
     const incoming = parseEmails(appCatMgrInputs[row.appCatId] ?? "");
     if (incoming.length === 0) return;
-    saveAppCatRow(row.appCatId, row.stoEmails, mergeEmails(row.managerEmails, incoming));
+    saveAppCatRow(row.appCatId, row.stoEmails, mergeEmails(row.managerEmails, incoming), row.viewerEmails ?? []);
     setAppCatMgrInputs((prev) => ({ ...prev, [row.appCatId]: "" }));
   };
 
   const removeMgrEmail = (row: AppCatPermission, email: string) => {
-    saveAppCatRow(row.appCatId, row.stoEmails, row.managerEmails.filter((e) => e !== email));
+    saveAppCatRow(row.appCatId, row.stoEmails, row.managerEmails.filter((e) => e !== email), row.viewerEmails ?? []);
+  };
+
+  const [appCatViewerInputs, setAppCatViewerInputs] = useState<Record<string, string>>({});
+
+  const addViewerEmail = (row: AppCatPermission) => {
+    const incoming = parseEmails(appCatViewerInputs[row.appCatId] ?? "");
+    if (incoming.length === 0) return;
+    saveAppCatRow(row.appCatId, row.stoEmails, row.managerEmails, mergeEmails(row.viewerEmails ?? [], incoming));
+    setAppCatViewerInputs((prev) => ({ ...prev, [row.appCatId]: "" }));
+  };
+
+  const removeViewerEmail = (row: AppCatPermission, email: string) => {
+    saveAppCatRow(row.appCatId, row.stoEmails, row.managerEmails, (row.viewerEmails ?? []).filter((e) => e !== email));
   };
 
   const [appCatBatchOpen, setAppCatBatchOpen] = useState(false);
@@ -322,21 +335,24 @@ export default function SettingsPage() {
       for (const line of appCatBatchText.split("\n")) {
         const trimmed = line.trim();
         if (!trimmed) continue;
-        // Format: appCatId stoEmails managerEmails
+        // Format: appCatId stoEmails managerEmails viewerEmails
         // Each field separated by whitespace. Emails comma-separated. Use "-" for none.
         const parts = trimmed.split(/\s+/);
         if (parts.length < 2) continue;
         const id = parts[0];
         const stoRaw = parts[1] ?? "-";
         const mgrRaw = parts[2] ?? "-";
+        const viewerRaw = parts[3] ?? "-";
         const stoNew = stoRaw === "-" ? [] : parseEmails(stoRaw);
         const mgrNew = mgrRaw === "-" ? [] : parseEmails(mgrRaw);
+        const viewerNew = viewerRaw === "-" ? [] : parseEmails(viewerRaw);
         if (!id) continue;
         const existing = appCatRows.find((r) => r.appCatId === id);
         await upsertAppCatPermission({
           appCatId: id,
           stoEmails: mergeEmails(existing?.stoEmails ?? [], stoNew),
           managerEmails: mergeEmails(existing?.managerEmails ?? [], mgrNew),
+          viewerEmails: mergeEmails(existing?.viewerEmails ?? [], viewerNew),
         });
       }
       await reloadAppCat();
@@ -1132,13 +1148,13 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="settings-card">
+      <div className="settings-card settings-card--wide">
         <h3 className="settings-card__title">App Catalog Permissions</h3>
         <p className="settings-card__desc">
           Repos whose name ends with <code>_&lt;number&gt;</code> use that number as
           their App Catalog ID. STO and Manager emails mapped to an ID are added as{" "}
-          <strong>viewers</strong> on that repo's Confluence pages. After editing,
-          run "Refresh Page Permissions" to re-apply to existing pages.
+          <strong>viewers</strong> on that repo's Confluence pages. Viewer emails get page permissions only (not shown on summary).
+          After editing, run "Refresh Page Permissions" to re-apply to existing pages.
         </p>
 
         <div className="settings-section">
@@ -1155,13 +1171,13 @@ export default function SettingsPage() {
           {appCatBatchOpen && (
             <>
               <p className="settings-hint">
-                One per line: <code>appCatId stoEmails managerEmails</code>. Use <code>-</code> for none.
+                One per line: <code>appCatId stoEmails managerEmails viewerEmails</code>. Use <code>-</code> for none.
                 Emails comma-separated. Lowercased, de-duplicated, merged with existing.
               </p>
               <textarea
                 className="form-input"
                 rows={5}
-                placeholder={"12345 sto@bmo.com,sto2@bmo.com mgr@bmo.com\n67890 team@bmo.com -\n99999 - mgr@bmo.com"}
+                placeholder={"12345 sto@bmo.com,sto2@bmo.com mgr@bmo.com viewer@bmo.com\n67890 team@bmo.com - -\n99999 - mgr@bmo.com -"}
                 value={appCatBatchText}
                 onChange={(e) => setAppCatBatchText(e.target.value)}
                 style={{ fontFamily: "monospace", fontSize: 12 }}
@@ -1183,90 +1199,111 @@ export default function SettingsPage() {
           <p className="settings-hint">No App Catalog IDs configured yet.</p>
         )}
 
-        {appCatRows.map((row) => (
-          <div key={row.appCatId} className="settings-section">
-            <div className="create-job-section__header">
-              <label className="form-label">
-                App Cat ID <code>{row.appCatId}</code>
-              </label>
-              <button
-                className="btn btn--danger btn--sm"
-                onClick={() => removeAppCatId(row.appCatId)}
-                disabled={saving}
-              >
-                Remove ID
-              </button>
-            </div>
-
-            <label className="form-label" style={{ fontSize: 12, marginTop: 8 }}>STO Emails</label>
-            <div className="settings-list">
-              {row.stoEmails.map((email) => (
-                <div key={email} className="settings-list-item">
-                  <code>{email}</code>
-                  <button
-                    className="btn btn--danger btn--sm"
-                    onClick={() => removeStoEmail(row, email)}
-                    disabled={saving}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="settings-add-row">
-              <input
-                className="form-input"
-                placeholder="sto@company.com"
-                value={appCatStoInputs[row.appCatId] ?? ""}
-                onChange={(e) =>
-                  setAppCatStoInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))
-                }
-                onKeyDown={(e) => e.key === "Enter" && addStoEmail(row)}
-              />
-              <button
-                className="btn btn--secondary btn--sm"
-                onClick={() => addStoEmail(row)}
-                disabled={saving || !(appCatStoInputs[row.appCatId] ?? "").trim()}
-              >
-                Add
-              </button>
-            </div>
-
-            <label className="form-label" style={{ fontSize: 12, marginTop: 8 }}>Manager Emails</label>
-            <div className="settings-list">
-              {row.managerEmails.map((email) => (
-                <div key={email} className="settings-list-item">
-                  <code>{email}</code>
-                  <button
-                    className="btn btn--danger btn--sm"
-                    onClick={() => removeMgrEmail(row, email)}
-                    disabled={saving}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="settings-add-row">
-              <input
-                className="form-input"
-                placeholder="manager@company.com"
-                value={appCatMgrInputs[row.appCatId] ?? ""}
-                onChange={(e) =>
-                  setAppCatMgrInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))
-                }
-                onKeyDown={(e) => e.key === "Enter" && addMgrEmail(row)}
-              />
-              <button
-                className="btn btn--secondary btn--sm"
-                onClick={() => addMgrEmail(row)}
-                disabled={saving || !(appCatMgrInputs[row.appCatId] ?? "").trim()}
-              >
-                Add
-              </button>
-            </div>
+        {appCatRows.length > 0 && (
+          <div className="appcat-table-wrapper">
+            <table className="appcat-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 72 }}>ID</th>
+                  <th>STO Emails</th>
+                  <th>Manager Emails</th>
+                  <th>Viewer Emails</th>
+                  <th style={{ width: 36 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {appCatRows.map((row) => (
+                  <tr key={row.appCatId}>
+                    <td className="appcat-table__id"><code>{row.appCatId}</code></td>
+                    <td>
+                      <div className="appcat-cell">
+                        <div className="appcat-chips">
+                          {row.stoEmails.map((email) => (
+                            <span key={email} className="appcat-chip">
+                              {email}
+                              <button
+                                className="appcat-chip__remove"
+                                onClick={() => removeStoEmail(row, email)}
+                                disabled={saving}
+                              >✕</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="appcat-add">
+                          <input
+                            className="appcat-add__input"
+                            placeholder="add email"
+                            value={appCatStoInputs[row.appCatId] ?? ""}
+                            onChange={(e) => setAppCatStoInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))}
+                            onKeyDown={(e) => e.key === "Enter" && addStoEmail(row)}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="appcat-cell">
+                        <div className="appcat-chips">
+                          {row.managerEmails.map((email) => (
+                            <span key={email} className="appcat-chip">
+                              {email}
+                              <button
+                                className="appcat-chip__remove"
+                                onClick={() => removeMgrEmail(row, email)}
+                                disabled={saving}
+                              >✕</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="appcat-add">
+                          <input
+                            className="appcat-add__input"
+                            placeholder="add email"
+                            value={appCatMgrInputs[row.appCatId] ?? ""}
+                            onChange={(e) => setAppCatMgrInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))}
+                            onKeyDown={(e) => e.key === "Enter" && addMgrEmail(row)}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="appcat-cell">
+                        <div className="appcat-chips">
+                          {(row.viewerEmails ?? []).map((email) => (
+                            <span key={email} className="appcat-chip appcat-chip--viewer">
+                              {email}
+                              <button
+                                className="appcat-chip__remove"
+                                onClick={() => removeViewerEmail(row, email)}
+                                disabled={saving}
+                              >✕</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="appcat-add">
+                          <input
+                            className="appcat-add__input"
+                            placeholder="add email"
+                            value={appCatViewerInputs[row.appCatId] ?? ""}
+                            onChange={(e) => setAppCatViewerInputs((prev) => ({ ...prev, [row.appCatId]: e.target.value }))}
+                            onKeyDown={(e) => e.key === "Enter" && addViewerEmail(row)}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        className="appcat-row-delete"
+                        onClick={() => removeAppCatId(row.appCatId)}
+                        disabled={saving}
+                        title="Remove this App Cat ID"
+                      >✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
+        )}
 
         <div className="settings-section">
           <label className="form-label">Add App Catalog ID</label>

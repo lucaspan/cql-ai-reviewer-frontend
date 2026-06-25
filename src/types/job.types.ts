@@ -300,6 +300,7 @@ export interface AppCatPermission {
   appCatId: string;
   stoEmails: string[];
   managerEmails: string[];
+  viewerEmails: string[];
   createdAt: string;
   updatedAt: string;
 }
