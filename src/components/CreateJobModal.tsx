@@ -40,7 +40,7 @@ export default function CreateJobModal({
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [sourceMode, setSourceMode] = useState<SourceMode>("github");
-  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [jfrogPath, setJfrogPath] = useState("");
   const [zipCommit, setZipCommit] = useState("");
 
   useEffect(() => {
@@ -70,8 +70,8 @@ export default function CreateJobModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (sourceMode === "zip" && !zipFile) {
-      onError("Please choose a .zip file to upload");
+    if (sourceMode === "zip" && !jfrogPath.trim()) {
+      onError("Please enter the JFrog Artifactory path");
       return;
     }
     setSubmitting(true);
@@ -84,7 +84,7 @@ export default function CreateJobModal({
           githubBranch: form.githubBranch,
           reviewJobType: form.reviewJobType || undefined,
           commitHash: zipCommit.trim() || undefined,
-          file: zipFile!,
+          jfrogPath: jfrogPath.trim(),
         });
       } else {
         const validDeps = dependentRepos.filter(
@@ -141,12 +141,12 @@ export default function CreateJobModal({
                   checked={sourceMode === "zip"}
                   onChange={() => setSourceMode("zip")}
                 />
-                <span>Upload .zip</span>
+                <span>JFrog .zip</span>
               </label>
             </div>
             {sourceMode === "zip" && (
               <p className="form-optional" style={{ marginTop: 6 }}>
-                For repos the GitHub token can't access. Owner/repo/branch are used as
+                Downloads a .zip from JFrog Artifactory. Owner/repo/branch are used as
                 labels (the page still groups with that repo). Reviewed in full-repo
                 mode and started immediately.
               </p>
@@ -156,23 +156,17 @@ export default function CreateJobModal({
           {sourceMode === "zip" && (
             <>
               <div className="form-field">
-                <label className="form-label">Source .zip *</label>
-                <div className="file-picker">
-                  <label className="btn btn--secondary btn--sm file-picker__btn">
-                    Choose file
-                    <input
-                      type="file"
-                      accept=".zip"
-                      className="file-picker__input"
-                      onChange={(e) => setZipFile(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                  <span className="file-picker__name">
-                    {zipFile
-                      ? `${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(1)} MB)`
-                      : "No file chosen"}
-                  </span>
-                </div>
+                <label className="form-label">JFrog Artifactory Path *</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. repo-name/path/to/archive.zip"
+                  value={jfrogPath}
+                  onChange={(e) => setJfrogPath(e.target.value)}
+                  required
+                />
+                <p className="form-optional" style={{ marginTop: 4 }}>
+                  Path within Artifactory (after the base URL)
+                </p>
               </div>
 
               <div className="form-field">

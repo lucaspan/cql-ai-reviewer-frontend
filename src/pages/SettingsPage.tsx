@@ -30,6 +30,7 @@ interface JobCreationSetting {
   sourceQueryLimit: number;
   sourceQueryRecentDays: number;
   sourceQueryPodDomains: string[];
+  jfrogBaseUrl: string;
 }
 
 interface ModelRoutingSetting {
@@ -776,6 +777,29 @@ export default function SettingsPage() {
               Add
             </button>
           </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">JFrog Artifactory Base URL</label>
+          <p className="settings-hint">
+            Base URL for downloading zip archives from JFrog (used by "JFrog .zip" job source)
+          </p>
+          <input
+            className="form-input"
+            placeholder="https://bmo.jfrog.io/artifactory"
+            value={creationSetting?.jfrogBaseUrl ?? ""}
+            onChange={(e) => {
+              if (creationSetting) {
+                setCreationSetting({ ...creationSetting, jfrogBaseUrl: e.target.value });
+              }
+            }}
+            onBlur={() => {
+              if (creationSetting) {
+                saveCreationSetting(creationSetting);
+              }
+            }}
+            style={{ maxWidth: 400 }}
+          />
         </div>
 
         <div className="settings-section">

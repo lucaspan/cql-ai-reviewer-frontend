@@ -105,9 +105,7 @@ export async function createJob(
 }
 
 /**
- * Create a review job from an uploaded .zip and start it immediately.
- * Sends multipart/form-data — do NOT set Content-Type (the browser adds the
- * boundary), so this bypasses the JSON apiFetch helper.
+ * Create a review job from a JFrog Artifactory zip and start it immediately.
  */
 export async function createJobFromZip(params: {
   githubOwner: string;
@@ -115,27 +113,13 @@ export async function createJobFromZip(params: {
   githubBranch: string;
   reviewJobType?: string;
   commitHash?: string;
-  file: File;
+  jfrogPath: string;
 }): Promise<CreateJobResult> {
-  const fd = new FormData();
-  fd.append("githubOwner", params.githubOwner);
-  fd.append("githubRepo", params.githubRepo);
-  fd.append("githubBranch", params.githubBranch);
-  if (params.reviewJobType) fd.append("reviewJobType", params.reviewJobType);
-  if (params.commitHash) fd.append("commitHash", params.commitHash);
-  fd.append("zip", params.file);
-
-  const res = await fetch(`${BASE_URL}/job/from-zip`, {
+  const res = await apiFetch<CreateJobResult>("/job/from-zip", {
     method: "POST",
-    headers: { "x-internal-api-key": API_KEY },
-    body: fd,
+    body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
-  }
-  const json = (await res.json()) as JDevApiResponse<CreateJobResult>;
-  return json.data;
+  return res.data;
 }
 
 export async function processPendingJob(): Promise<ProcessJobResult> {
