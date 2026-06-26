@@ -40,7 +40,7 @@ export default function CreateJobModal({
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [sourceMode, setSourceMode] = useState<SourceMode>("github");
-  const [jfrogPath, setJfrogPath] = useState("");
+  const [jfrogUrl, setJfrogUrl] = useState("");
   const [zipCommit, setZipCommit] = useState("");
 
   useEffect(() => {
@@ -70,8 +70,8 @@ export default function CreateJobModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (sourceMode === "zip" && !jfrogPath.trim()) {
-      onError("Please enter the JFrog Artifactory path");
+    if (sourceMode === "zip" && !jfrogUrl.trim()) {
+      onError("Please enter the JFrog Artifactory URL");
       return;
     }
     setSubmitting(true);
@@ -84,7 +84,7 @@ export default function CreateJobModal({
           githubBranch: form.githubBranch,
           reviewJobType: form.reviewJobType || undefined,
           commitHash: zipCommit.trim() || undefined,
-          jfrogPath: jfrogPath.trim(),
+          jfrogUrl: jfrogUrl.trim(),
         });
       } else {
         const validDeps = dependentRepos.filter(
@@ -156,17 +156,14 @@ export default function CreateJobModal({
           {sourceMode === "zip" && (
             <>
               <div className="form-field">
-                <label className="form-label">JFrog Artifactory Path *</label>
+                <label className="form-label">JFrog Artifactory URL *</label>
                 <input
                   className="form-input"
-                  placeholder="e.g. repo-name/path/to/archive.zip"
-                  value={jfrogPath}
-                  onChange={(e) => setJfrogPath(e.target.value)}
+                  placeholder="e.g. https://bmostaging.jfrog.io/artifactory/repo/path/archive.zip"
+                  value={jfrogUrl}
+                  onChange={(e) => setJfrogUrl(e.target.value)}
                   required
                 />
-                <p className="form-optional" style={{ marginTop: 4 }}>
-                  Path within Artifactory (after the base URL)
-                </p>
               </div>
 
               <div className="form-field">

@@ -113,7 +113,7 @@ export async function createJobFromZip(params: {
   githubBranch: string;
   reviewJobType?: string;
   commitHash?: string;
-  jfrogPath: string;
+  jfrogUrl: string;
 }): Promise<CreateJobResult> {
   const res = await apiFetch<CreateJobResult>("/job/from-zip", {
     method: "POST",
