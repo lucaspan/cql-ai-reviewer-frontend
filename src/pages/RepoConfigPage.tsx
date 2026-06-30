@@ -7,6 +7,7 @@ import {
   getJobTypes,
   ingestFromSource,
   getSourceRepos,
+  batchAddEmailsToRepoConfigs,
 } from "../api/jobApi";
 import type { IngestResult, SourceRepo } from "../api/jobApi";
 import type {
@@ -45,6 +46,16 @@ export default function RepoConfigPage() {
     created: number;
     failed: number;
     errors: string[];
+  } | null>(null);
+
+  // Batch add emails to repo configs
+  const [showBatchEmailForm, setShowBatchEmailForm] = useState(false);
+  const [batchEmailRepos, setBatchEmailRepos] = useState("");
+  const [batchEmailEmails, setBatchEmailEmails] = useState("");
+  const [batchEmailRunning, setBatchEmailRunning] = useState(false);
+  const [batchEmailResult, setBatchEmailResult] = useState<{
+    matched: Array<{ id: string; githubOwner: string; githubRepo: string }>;
+    permissionsRefreshed: number;
   } | null>(null);
 
   // Ingest-from-source preview → confirm flow.
@@ -249,6 +260,29 @@ export default function RepoConfigPage() {
     load();
   };
 
+  const handleBatchAddEmails = async () => {
+    const repos = batchEmailRepos
+      .split(/[\n,]/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+    const emails = batchEmailEmails
+      .split(/[\n,]/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (!repos.length || !emails.length) return;
+    setBatchEmailRunning(true);
+    setBatchEmailResult(null);
+    try {
+      const result = await batchAddEmailsToRepoConfigs({ repoPatterns: repos, emails });
+      setBatchEmailResult(result);
+      load();
+    } catch {
+      // silent
+    } finally {
+      setBatchEmailRunning(false);
+    }
+  };
+
   if (loading) {
     return <div className="rc-state">Loading...</div>;
   }
@@ -281,6 +315,13 @@ export default function RepoConfigPage() {
             disabled={batchRunning}
           >
             Batch Add
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={() => setShowBatchEmailForm((v) => !v)}
+            disabled={batchEmailRunning}
+          >
+            Batch Add Emails
           </button>
           <button
             className="btn btn--primary btn--sm"
@@ -346,6 +387,81 @@ export default function RepoConfigPage() {
                   {batchResult.errors.map((e, i) => (
                     <div key={i} className="rc-ingest-item rc-ingest-item--skip">
                       {e}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showBatchEmailForm && (
+        <div className="rc-ingest-form">
+          <p className="rc-ingest-form-hint">
+            Add emails to repo configs by exact repo name. Emails are merged into
+            confluenceEmails and page permissions are auto-refreshed.
+          </p>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" style={{ fontSize: 12 }}>Repo Names (one per line or comma-separated)</label>
+              <textarea
+                className="batch-textarea"
+                placeholder={"BILJ_bilj-ui-shell-app_51362\nother-repo_12345"}
+                value={batchEmailRepos}
+                onChange={(e) => setBatchEmailRepos(e.target.value)}
+                rows={4}
+                spellCheck={false}
+                disabled={batchEmailRunning}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" style={{ fontSize: 12 }}>Emails (one per line or comma-separated)</label>
+              <textarea
+                className="batch-textarea"
+                placeholder={"user@bmo.com\nteam@bmo.com"}
+                value={batchEmailEmails}
+                onChange={(e) => setBatchEmailEmails(e.target.value)}
+                rows={4}
+                spellCheck={false}
+                disabled={batchEmailRunning}
+              />
+            </div>
+          </div>
+          <div className="rc-ingest-form-actions">
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={handleBatchAddEmails}
+              disabled={batchEmailRunning || !batchEmailRepos.trim() || !batchEmailEmails.trim()}
+            >
+              {batchEmailRunning ? "Adding…" : "Add Emails & Refresh Permissions"}
+            </button>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => {
+                setShowBatchEmailForm(false);
+                setBatchEmailResult(null);
+              }}
+              disabled={batchEmailRunning}
+            >
+              Cancel
+            </button>
+          </div>
+          {batchEmailResult && (
+            <div className="rc-ingest-result" style={{ marginTop: 12 }}>
+              <div className="rc-ingest-summary">
+                <span className="rc-ingest-created">
+                  {batchEmailResult.matched.length} configs matched
+                </span>
+                <span className="rc-ingest-skipped">
+                  {batchEmailResult.permissionsRefreshed} pages refreshed
+                </span>
+              </div>
+              {batchEmailResult.matched.length > 0 && (
+                <div className="rc-ingest-list">
+                  {batchEmailResult.matched.map((m) => (
+                    <div key={m.id} className="rc-ingest-item">
+                      {m.githubOwner}/{m.githubRepo}
                     </div>
                   ))}
                 </div>

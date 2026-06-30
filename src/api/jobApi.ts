@@ -405,6 +405,23 @@ export async function deleteRepoConfig(
   return res.data;
 }
 
+export async function batchAddEmailsToRepoConfigs(params: {
+  repoPatterns: string[];
+  emails: string[];
+}): Promise<{
+  matched: Array<{ id: string; githubOwner: string; githubRepo: string }>;
+  permissionsRefreshed: number;
+}> {
+  const res = await apiFetch<{
+    matched: Array<{ id: string; githubOwner: string; githubRepo: string }>;
+    permissionsRefreshed: number;
+  }>("/repo-config/batch-add-emails", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}
+
 // --- Ingestion API ---
 
 export type SourceRepo = {
