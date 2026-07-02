@@ -142,6 +142,7 @@ export interface IssueJobRow {
 
 export interface IssueDetailRow {
   job_id: string;
+  finding_id: string;
   repo: string;
   branch: string;
   commit: string | null;
@@ -159,6 +160,7 @@ export interface IssueDetailRow {
   refactor_direction: string;
   what_would_confirm: string | null;
   logging_level: string | null;
+  status: string;
   created_at: string;
   updated_at: string;
 }

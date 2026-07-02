@@ -640,6 +640,9 @@ export default function JobsPage() {
             setDetailJob(null);
             setDetailLoading(false);
           }}
+          onRefresh={() => {
+            if (detailJob?.id) handleViewDetail(detailJob.id);
+          }}
         />
       )}
 

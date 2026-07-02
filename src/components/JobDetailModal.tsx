@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { GithubReviewJob } from "../types/job.types";
-import { publishJob } from "../api/jobApi";
+import { publishJob, dismissFinding, reactivateFinding } from "../api/jobApi";
 import "./Modal.css";
 import "./JobDetailModal.css";
 
@@ -8,6 +8,7 @@ interface JobDetailModalProps {
   job: Partial<GithubReviewJob> | null;
   loading: boolean;
   onClose: () => void;
+  onRefresh?: () => void;
 }
 
 function Field({
@@ -44,6 +45,7 @@ export default function JobDetailModal({
   job,
   loading,
   onClose,
+  onRefresh,
 }: JobDetailModalProps) {
   const [republishing, setRepublishing] = useState(false);
   const [republishResult, setRepublishResult] = useState<{
@@ -253,6 +255,65 @@ export default function JobDetailModal({
                   <div className="results-empty">No payload</div>
                 )}
               </div>
+
+              {(() => {
+                const findings = (job.results as any)?.findings as any[] | undefined;
+                if (!findings || findings.length === 0) return null;
+                return (
+                  <div className="job-detail-section">
+                    <p className="job-detail-section__title">
+                      Findings ({findings.filter((f: any) => f.status !== "dismissed").length} active, {findings.filter((f: any) => f.status === "dismissed").length} dismissed)
+                    </p>
+                    <div className="job-detail-findings-table-wrapper">
+                      <table className="job-detail-findings-table">
+                        <thead>
+                          <tr>
+                            <th>Severity</th>
+                            <th>Title</th>
+                            <th>File</th>
+                            <th>Status</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {findings.map((f: any) => (
+                            <tr key={f.id} className={f.status === "dismissed" ? "job-detail-findings-row--dismissed" : ""}>
+                              <td><span className={`reports-sev-badge reports-sev-badge--${f.severity}`}>{f.severity}</span></td>
+                              <td title={f.evidence}>{f.title}</td>
+                              <td className="job-detail-findings-file" title={f.file}>{f.file}</td>
+                              <td>{f.status ?? "active"}</td>
+                              <td>
+                                {f.id && f.status !== "dismissed" && (
+                                  <button
+                                    className="btn btn--secondary btn--sm"
+                                    onClick={async () => {
+                                      await dismissFinding(f.id);
+                                      onRefresh?.();
+                                    }}
+                                  >
+                                    Dismiss
+                                  </button>
+                                )}
+                                {f.id && f.status === "dismissed" && (
+                                  <button
+                                    className="btn btn--secondary btn--sm"
+                                    onClick={async () => {
+                                      await reactivateFinding(f.id);
+                                      onRefresh?.();
+                                    }}
+                                  >
+                                    Reactivate
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="job-detail-section">
                 <div className="results-toolbar">

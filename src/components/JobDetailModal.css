@@ -138,3 +138,72 @@
   text-decoration: underline;
   color: #047857;
 }
+
+/* Findings table in job detail */
+.job-detail-findings-table-wrapper {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f3;
+  border-radius: 8px;
+}
+
+.job-detail-findings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.job-detail-findings-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  position: sticky;
+  top: 0;
+}
+
+.job-detail-findings-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.job-detail-findings-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.job-detail-findings-file {
+  font-family: ui-monospace, 'SF Mono', monospace;
+  font-size: 12px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-detail-findings-row--dismissed {
+  opacity: 0.5;
+}
+
+.results-toolbar__status {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.results-toolbar__status--ok {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.results-toolbar__status--err {
+  background: #fef2f2;
+  color: #dc2626;
+}

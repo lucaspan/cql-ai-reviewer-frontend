@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { testModel } from "../api/jobApi";
+import { testModel, dismissFinding, reactivateFinding } from "../api/jobApi";
 import "./SettingsPage.css";
 
 const BEDROCK_MODELS = [
@@ -19,6 +19,12 @@ export default function DevToolsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Dismiss findings
+  const [dismissIds, setDismissIds] = useState("");
+  const [dismissReason, setDismissReason] = useState("");
+  const [dismissing, setDismissing] = useState(false);
+  const [dismissResult, setDismissResult] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (!prompt.trim()) return;
     setLoading(true);
@@ -34,8 +40,110 @@ export default function DevToolsPage() {
     }
   };
 
+  const handleDismiss = async () => {
+    const ids = dismissIds.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) return;
+    setDismissing(true);
+    setDismissResult(null);
+    try {
+      let success = 0;
+      let failed = 0;
+      for (const id of ids) {
+        try {
+          await dismissFinding(id, dismissReason.trim() || undefined);
+          success++;
+        } catch {
+          failed++;
+        }
+      }
+      setDismissResult(`Done: ${success} dismissed, ${failed} failed`);
+      setDismissIds("");
+    } catch (err) {
+      setDismissResult((err as Error).message);
+    } finally {
+      setDismissing(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    const ids = dismissIds.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) return;
+    setDismissing(true);
+    setDismissResult(null);
+    try {
+      let success = 0;
+      let failed = 0;
+      for (const id of ids) {
+        try {
+          await reactivateFinding(id);
+          success++;
+        } catch {
+          failed++;
+        }
+      }
+      setDismissResult(`Done: ${success} reactivated, ${failed} failed`);
+      setDismissIds("");
+    } catch (err) {
+      setDismissResult((err as Error).message);
+    } finally {
+      setDismissing(false);
+    }
+  };
+
   return (
     <div className="settings-page">
+      <div className="settings-card">
+        <h3 className="settings-card__title">Dismiss / Reactivate Findings</h3>
+        <p className="settings-card__desc">
+          Enter one or more finding IDs (UUIDs) to dismiss or reactivate. One per line or comma-separated.
+        </p>
+
+        <div className="settings-section">
+          <label className="form-label">Finding IDs</label>
+          <textarea
+            className="form-input"
+            rows={4}
+            placeholder={"e.g.\n550e8400-e29b-41d4-a716-446655440000\n6ba7b810-9dad-11d1-80b4-00c04fd430c8"}
+            value={dismissIds}
+            onChange={(e) => setDismissIds(e.target.value)}
+            disabled={dismissing}
+            style={{ fontFamily: "monospace", fontSize: 12 }}
+          />
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">Reason <span style={{ fontWeight: 400, color: "#999" }}>(optional, for dismiss only)</span></label>
+          <input
+            className="form-input"
+            placeholder="e.g. accepted risk, false positive"
+            value={dismissReason}
+            onChange={(e) => setDismissReason(e.target.value)}
+            disabled={dismissing}
+          />
+        </div>
+
+        <div className="settings-section" style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={handleDismiss}
+            disabled={dismissing || !dismissIds.trim()}
+          >
+            {dismissing ? "Processing..." : "Dismiss"}
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={handleReactivate}
+            disabled={dismissing || !dismissIds.trim()}
+          >
+            Reactivate
+          </button>
+        </div>
+
+        {dismissResult && (
+          <div className="settings-saved" style={{ marginTop: 12 }}>{dismissResult}</div>
+        )}
+      </div>
+
       <div className="settings-card">
         <h3 className="settings-card__title">Test Model</h3>
         <p className="settings-card__desc">

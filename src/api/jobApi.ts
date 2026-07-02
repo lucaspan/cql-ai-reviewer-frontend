@@ -405,6 +405,21 @@ export async function deleteRepoConfig(
   return res.data;
 }
 
+export async function dismissFinding(findingId: string, reason?: string): Promise<{ dismissed: boolean }> {
+  const res = await apiFetch<{ dismissed: boolean }>(`/job/findings/${findingId}/dismiss`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+  return res.data;
+}
+
+export async function reactivateFinding(findingId: string): Promise<{ reactivated: boolean }> {
+  const res = await apiFetch<{ reactivated: boolean }>(`/job/findings/${findingId}/reactivate`, {
+    method: "POST",
+  });
+  return res.data;
+}
+
 export async function batchAddEmailsToRepoConfigs(params: {
   repoPatterns: string[];
   emails: string[];

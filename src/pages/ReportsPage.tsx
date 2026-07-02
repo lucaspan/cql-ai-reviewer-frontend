@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { getReportViewPaginated } from "../api/jobApi";
+import { getReportViewPaginated, getJobTypes, dismissFinding, reactivateFinding } from "../api/jobApi";
 import type { ReportView } from "../api/jobApi";
+import type { ReviewJobType } from "../types/job.types";
 import type {
   IssueJobRow,
   IssueDetailRow,
@@ -18,6 +19,35 @@ type ReportTab = ReportView;
 export default function ReportsPage() {
   const [tab, setTab] = useState<ReportTab>("issue-job");
   const [loading, setLoading] = useState(false);
+
+  // Findings export
+  const [exportType, setExportType] = useState("PII");
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
+  const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
+
+  useEffect(() => {
+    getJobTypes().then(setJobTypes).catch(() => {});
+  }, []);
+
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (exportType) params.set("reviewJobType", exportType);
+    if (exportFrom) params.set("fromDate", exportFrom);
+    if (exportTo) params.set("toDate", exportTo);
+    const url = `/api/job/findings-export?${params.toString()}`;
+
+    fetch(url, { headers: { "x-internal-api-key": import.meta.env.VITE_API_KEY as string } })
+      .then((r) => r.blob())
+      .then((blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = `findings-${exportType || "all"}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+      });
+  };
 
   const [issueJobs, setIssueJobs] = useState<IssueJobRow[]>([]);
   const [issueDetails, setIssueDetails] = useState<IssueDetailRow[]>([]);
@@ -103,6 +133,46 @@ export default function ReportsPage() {
 
   return (
     <div className="reports-content">
+      <div className="reports-export-card">
+        <h4 className="reports-export-title">Findings Export</h4>
+        <div className="reports-export-row">
+          <div className="reports-export-field">
+            <label className="form-label" style={{ fontSize: 12 }}>Job Type</label>
+            <select
+              className="form-input"
+              value={exportType}
+              onChange={(e) => setExportType(e.target.value)}
+            >
+              <option value="">All Types</option>
+              {jobTypes.map((jt) => (
+                <option key={jt.id} value={jt.id}>{jt.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="reports-export-field">
+            <label className="form-label" style={{ fontSize: 12 }}>From Date</label>
+            <input
+              className="form-input"
+              type="date"
+              value={exportFrom}
+              onChange={(e) => setExportFrom(e.target.value)}
+            />
+          </div>
+          <div className="reports-export-field">
+            <label className="form-label" style={{ fontSize: 12 }}>To Date</label>
+            <input
+              className="form-input"
+              type="date"
+              value={exportTo}
+              onChange={(e) => setExportTo(e.target.value)}
+            />
+          </div>
+          <button className="btn btn--primary btn--sm" onClick={handleExport}>
+            Download Excel
+          </button>
+        </div>
+      </div>
+
       <div className="reports-tabs">
         {tabs.map((t) => (
           <button
@@ -176,14 +246,15 @@ export default function ReportsPage() {
                 <th>File</th>
                 <th>Title</th>
                 <th>Date</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {issueDetails.length === 0 && (
-                <tr><td colSpan={8} className="reports-empty">No data</td></tr>
+                <tr><td colSpan={9} className="reports-empty">No data</td></tr>
               )}
               {issueDetails.map((row, i) => (
-                <tr key={`${row.job_id}-${i}`}>
+                <tr key={`${row.finding_id ?? row.job_id}-${i}`}>
                   <td>{row.repo}</td>
                   <td>{row.branch}</td>
                   <td><span className="reports-badge">{row.job_type}</span></td>
@@ -192,6 +263,20 @@ export default function ReportsPage() {
                   <td className="reports-mono reports-file" title={row.file}>{row.file}</td>
                   <td title={row.title}>{row.title}</td>
                   <td className="reports-date">{formatDate(row.created_at)}</td>
+                  <td>
+                    {row.finding_id && (
+                      <button
+                        className="btn btn--secondary btn--sm"
+                        onClick={async () => {
+                          await dismissFinding(row.finding_id);
+                          loadTab();
+                        }}
+                        title="Dismiss this finding (won't fix)"
+                      >
+                        Dismiss
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
