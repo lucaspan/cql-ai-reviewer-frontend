@@ -201,13 +201,16 @@ export default function ReportsPage() {
                 <th>High</th>
                 <th>Medium</th>
                 <th>Low</th>
+                <th>App Cat ID</th>
+                <th>STO</th>
+                <th>Manager</th>
                 <th>Confluence</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody>
               {issueJobs.length === 0 && (
-                <tr><td colSpan={11} className="reports-empty">No data</td></tr>
+                <tr><td colSpan={14} className="reports-empty">No data</td></tr>
               )}
               {issueJobs.map((row) => (
                 <tr key={row.job_id}>
@@ -220,6 +223,9 @@ export default function ReportsPage() {
                   <td className="reports-num reports-sev--high">{row.high_count}</td>
                   <td className="reports-num reports-sev--medium">{row.medium_count}</td>
                   <td className="reports-num reports-sev--low">{row.low_count}</td>
+                  <td className="reports-mono">{row.app_cat_id ?? "—"}</td>
+                  <td>{(row.sto_emails ?? []).join(", ") || "—"}</td>
+                  <td>{(row.manager_emails ?? []).join(", ") || "—"}</td>
                   <td>
                     {row.confluence_link ? (
                       <a href={row.confluence_link} target="_blank" rel="noreferrer" className="reports-link">View</a>
@@ -295,13 +301,16 @@ export default function ReportsPage() {
                 <th>Total MD</th>
                 <th>Labels</th>
                 <th>Audiences</th>
+                <th>App Cat ID</th>
+                <th>STO</th>
+                <th>Manager</th>
                 <th>Confluence</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody>
               {mdJobs.length === 0 && (
-                <tr><td colSpan={8} className="reports-empty">No data</td></tr>
+                <tr><td colSpan={11} className="reports-empty">No data</td></tr>
               )}
               {mdJobs.map((row) => (
                 <tr key={row.job_id}>
@@ -311,18 +320,21 @@ export default function ReportsPage() {
                   <td className="reports-num">{row.total_md}</td>
                   <td>
                     <div className="reports-breakdown">
-                      {Object.entries(row.label_breakdown).map(([k, v]) => (
+                      {Object.entries(row.label_breakdown ?? {}).map(([k, v]) => (
                         <span key={k} className="reports-pill">{k}: {v}</span>
                       ))}
                     </div>
                   </td>
                   <td>
                     <div className="reports-breakdown">
-                      {Object.entries(row.audience_breakdown).map(([k, v]) => (
+                      {Object.entries(row.audience_breakdown ?? {}).map(([k, v]) => (
                         <span key={k} className="reports-pill reports-pill--audience">{k}: {v}</span>
                       ))}
                     </div>
                   </td>
+                  <td className="reports-mono">{row.app_cat_id ?? "—"}</td>
+                  <td>{(row.sto_emails ?? []).join(", ") || "—"}</td>
+                  <td>{(row.manager_emails ?? []).join(", ") || "—"}</td>
                   <td>
                     {row.confluence_link ? (
                       <a href={row.confluence_link} target="_blank" rel="noreferrer" className="reports-link">View</a>

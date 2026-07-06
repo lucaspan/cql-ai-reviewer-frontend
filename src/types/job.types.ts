@@ -136,6 +136,9 @@ export interface IssueJobRow {
   high_count: number;
   medium_count: number;
   low_count: number;
+  app_cat_id: string | null;
+  sto_emails: string[];
+  manager_emails: string[];
   created_at: string;
   updated_at: string;
 }
@@ -175,6 +178,9 @@ export interface MdJobRow {
   total_md: number;
   label_breakdown: Record<string, number>;
   audience_breakdown: Record<string, number>;
+  app_cat_id: string | null;
+  sto_emails: string[];
+  manager_emails: string[];
   created_at: string;
   updated_at: string;
 }
