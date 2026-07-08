@@ -58,6 +58,13 @@ interface SummaryFindingsSetting {
   performanceAnalysis: FindingsAnalysisValue | null;
 }
 
+interface CommitReviewSetting {
+  crawlerEnabled: boolean;
+  minLinesChanged: number;
+  startAfterDate: string;
+  model: string;
+}
+
 const BEDROCK_MODELS = [
   { id: "us.anthropic.claude-opus-4-7", label: "Opus 4.7" },
   { id: "us.anthropic.claude-opus-4-6-v1", label: "Opus 4.6" },
@@ -109,6 +116,11 @@ export default function SettingsPage() {
     useState<ModelRoutingSetting | null>(null);
   const [summarySetting, setSummarySetting] =
     useState<SummaryFindingsSetting | null>(null);
+  const [commitReviewSetting, setCommitReviewSetting] =
+    useState<CommitReviewSetting | null>(null);
+  const [commitReviewDraftDate, setCommitReviewDraftDate] = useState<string>(
+    new Date().toISOString()
+  );
   const [appCatRows, setAppCatRows] = useState<AppCatPermission[]>([]);
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,18 +150,20 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [schedulerRes, creationRes, routingRes, summaryRes, appCatData] =
+      const [schedulerRes, creationRes, routingRes, summaryRes, commitReviewRes, appCatData] =
         await Promise.all([
           getSetting("JOB_SCHEDULER_SETTING"),
           getSetting("JOB_CREATION_SETTING"),
           getSetting("MODEL_ROUTING_SETTING"),
           getSetting("SUMMARY_FINDINGS_SETTING"),
+          getSetting("COMMIT_REVIEW_JOB_SETTING"),
           getAppCatPermissions(),
         ]);
       setSetting(schedulerRes.value as unknown as JobSchedulerSetting);
       setCreationSetting(creationRes.value as unknown as JobCreationSetting);
       setRoutingSetting(routingRes.value as unknown as ModelRoutingSetting);
       setSummarySetting(summaryRes.value as unknown as SummaryFindingsSetting);
+      setCommitReviewSetting(commitReviewRes.value as unknown as CommitReviewSetting);
       setAppCatRows(appCatData);
     } catch (err) {
       setError((err as Error).message);
@@ -226,6 +240,26 @@ export default function SettingsPage() {
     try {
       await updateSetting(
         "SUMMARY_FINDINGS_SETTING",
+        updated as unknown as Record<string, unknown>,
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+      loadSettings();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveCommitReviewSetting = async (updated: CommitReviewSetting) => {
+    setCommitReviewSetting(updated);
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      await updateSetting(
+        "COMMIT_REVIEW_JOB_SETTING",
         updated as unknown as Record<string, unknown>,
       );
       setSaved(true);
@@ -1324,6 +1358,99 @@ export default function SettingsPage() {
               Add ID
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="settings-card">
+        <h3 className="settings-card__title">Commit Review</h3>
+        <p className="settings-card__desc">
+          Controls the commit review pipeline — fetching commits from the source DB and processing them through the LLM reviewer.
+        </p>
+
+        <div className="toggle-row">
+          <div className="toggle-row__text">
+            <span className="toggle-row__label">Crawler Enabled</span>
+            <span className="toggle-row__desc">
+              Auto-process pending commit review jobs every 30s
+              {commitReviewSetting?.startAfterDate && (
+                <> — currently set to <strong>{new Date(commitReviewSetting.startAfterDate).toLocaleString()}</strong></>
+              )}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 12, color: "#6b7280" }}>Start after:</span>
+            <input
+              className="form-input"
+              type="datetime-local"
+              value={commitReviewSetting?.crawlerEnabled
+                ? new Date(new Date(commitReviewSetting.startAfterDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+                : new Date(new Date(commitReviewDraftDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+              onChange={(e) => {
+                if (e.target.value && !commitReviewSetting?.crawlerEnabled) {
+                  setCommitReviewDraftDate(new Date(e.target.value).toISOString());
+                }
+              }}
+              disabled={saving || !!commitReviewSetting?.crawlerEnabled}
+              style={{ width: 200, padding: "4px 8px", fontSize: 12 }}
+            />
+            <button
+              className={`toggle-switch ${commitReviewSetting?.crawlerEnabled ? "toggle-switch--on" : ""}`}
+              onClick={() => {
+                if (commitReviewSetting) {
+                  const enabling = !commitReviewSetting.crawlerEnabled;
+                  if (enabling) {
+                    saveCommitReviewSetting({ ...commitReviewSetting, crawlerEnabled: true, startAfterDate: commitReviewDraftDate });
+                  } else {
+                    saveCommitReviewSetting({ ...commitReviewSetting, crawlerEnabled: false });
+                    setCommitReviewDraftDate(new Date().toISOString());
+                  }
+                }
+              }}
+              disabled={saving}
+            >
+              <span className="toggle-switch__knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label className="form-label">Min Lines Changed</label>
+          <p className="settings-hint">Only fetch commits with at least this many total lines changed</p>
+          <input
+            className="form-input"
+            type="number"
+            min={1}
+            value={commitReviewSetting?.minLinesChanged ?? 10}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
+              if (commitReviewSetting && val > 0) {
+                setCommitReviewSetting({ ...commitReviewSetting, minLinesChanged: val });
+              }
+            }}
+            onBlur={() => {
+              if (commitReviewSetting) saveCommitReviewSetting(commitReviewSetting);
+            }}
+            style={{ width: 100 }}
+          />
+        </div>
+
+
+        <div className="settings-section">
+          <label className="form-label">Review Model</label>
+          <select
+            className="form-input"
+            value={commitReviewSetting?.model ?? ""}
+            onChange={(e) => {
+              if (commitReviewSetting) {
+                saveCommitReviewSetting({ ...commitReviewSetting, model: e.target.value });
+              }
+            }}
+            style={{ maxWidth: 400 }}
+          >
+            {BEDROCK_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
