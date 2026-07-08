@@ -420,6 +420,47 @@ export async function reactivateFinding(findingId: string): Promise<{ reactivate
   return res.data;
 }
 
+// --- Commit Review Jobs ---
+
+export async function getCommitReviewJobs(params?: {
+  page?: number;
+  limit?: number;
+  githubRepo?: string;
+  status?: string;
+}): Promise<{ data: any[]; pagination: any }> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.githubRepo) query.set("githubRepo", params.githubRepo);
+  if (params?.status) query.set("status", params.status);
+  const res = await apiFetch<{ data: any[]; pagination: any }>(`/commit-review-job?${query.toString()}`);
+  return res.data;
+}
+
+export async function getCommitReviewJob(id: string): Promise<{ job: any; dimensions: any[] }> {
+  const res = await apiFetch<{ job: any; dimensions: any[] }>(`/commit-review-job/${id}`);
+  return res.data;
+}
+
+export async function fetchLatestCommits(limit?: number): Promise<any[]> {
+  const query = limit ? `?limit=${limit}` : "";
+  const res = await apiFetch<any[]>(`/commit-review-job/fetch-latest${query}`);
+  return res.data;
+}
+
+export async function createCommitReviewJob(params: {
+  githubOwner: string;
+  githubRepo: string;
+  githubCommit: string;
+  requestPayload?: object;
+}): Promise<any> {
+  const res = await apiFetch<any>("/commit-review-job", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}
+
 export async function batchAddEmailsToRepoConfigs(params: {
   repoPatterns: string[];
   emails: string[];

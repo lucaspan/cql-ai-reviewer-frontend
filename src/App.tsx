@@ -7,6 +7,7 @@ import RepoConfigPage from "./pages/RepoConfigPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
 import DevToolsPage from "./pages/DevToolsPage";
+import CommitReviewJobPage from "./pages/CommitReviewJobPage";
 import "./App.css";
 
 type Page =
@@ -16,6 +17,7 @@ type Page =
   | "reports"
   | "repo-config"
   | "projects"
+  | "commit-reviews"
   | "settings"
   | "dev-tools";
 
@@ -27,6 +29,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
     items: [
       { id: "jobs", label: "Jobs" },
       { id: "projects", label: "Threat Modeling" },
+      { id: "commit-reviews", label: "Commit Reviews" },
       { id: "reports", label: "Reports" },
       { id: "metrics", label: "Metrics" },
     ],
@@ -45,6 +48,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
 const PAGE_SUBTITLE: Record<Page, string> = {
   jobs: "Job Manager",
   projects: "Threat Modeling",
+  "commit-reviews": "Commit Reviews",
   reports: "Reports",
   metrics: "Metrics",
   "repo-config": "Repositories",
@@ -96,6 +100,8 @@ function App() {
         return <PageShell subtitle={PAGE_SUBTITLE.projects}><ProjectsPage /></PageShell>;
       case "settings":
         return <PageShell subtitle={PAGE_SUBTITLE.settings}><SettingsPage /></PageShell>;
+      case "commit-reviews":
+        return <PageShell subtitle={PAGE_SUBTITLE["commit-reviews"]}><CommitReviewJobPage /></PageShell>;
       case "dev-tools":
         return <PageShell subtitle={PAGE_SUBTITLE["dev-tools"]}><DevToolsPage /></PageShell>;
     }
