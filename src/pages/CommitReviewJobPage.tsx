@@ -58,6 +58,13 @@ export default function CommitReviewJobPage() {
   const [filterRepo, setFilterRepo] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
+  // Manual create
+  const [showCreate, setShowCreate] = useState(false);
+  const [createOwner, setCreateOwner] = useState("BMO-Prod");
+  const [createRepo, setCreateRepo] = useState("");
+  const [createCommit, setCreateCommit] = useState("");
+  const [creatingManual, setCreatingManual] = useState(false);
+
   // Fetch latest commits from source
   const [showFetch, setShowFetch] = useState(false);
   const [sourceCommits, setSourceCommits] = useState<SourceCommit[]>([]);
@@ -96,6 +103,26 @@ export default function CommitReviewJobPage() {
   }, [page, filterRepo, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleManualCreate = async () => {
+    if (!createRepo.trim() || !createCommit.trim()) return;
+    setCreatingManual(true);
+    try {
+      await createCommitReviewJob({
+        githubOwner: createOwner.trim(),
+        githubRepo: createRepo.trim(),
+        githubCommit: createCommit.trim()
+      });
+      setCreateRepo("");
+      setCreateCommit("");
+      setShowCreate(false);
+      load();
+    } catch {
+      // silent — likely duplicate
+    } finally {
+      setCreatingManual(false);
+    }
+  };
 
   const handleFetchLatest = async () => {
     setFetching(true);
@@ -261,7 +288,37 @@ export default function CommitReviewJobPage() {
         <button className="btn btn--secondary btn--sm" onClick={handleProcessPending} disabled={processingJobId !== null}>
           {processingJobId === "__pending__" ? "Processing..." : "Process Pending"}
         </button>
+        <button className="btn btn--secondary btn--sm" onClick={() => setShowCreate((v) => !v)}>
+          + Create
+        </button>
+        <button className="btn btn--secondary btn--sm" onClick={() => load()} disabled={loading}>
+          Refresh
+        </button>
       </div>
+
+      {/* Manual Create Panel */}
+      {showCreate && (
+        <div style={{ marginBottom: 16, padding: 16, background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 }}>Owner</label>
+              <input className="form-input" value={createOwner} onChange={(e) => setCreateOwner(e.target.value)} style={{ width: 120 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 }}>Repository *</label>
+              <input className="form-input" placeholder="e.g. rid-etf-onboarding_63623" value={createRepo} onChange={(e) => setCreateRepo(e.target.value)} style={{ width: 250 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 }}>Commit SHA *</label>
+              <input className="form-input" placeholder="e.g. a1b2c3d4e5f6" value={createCommit} onChange={(e) => setCreateCommit(e.target.value)} style={{ width: 300 }} />
+            </div>
+            <button className="btn btn--primary btn--sm" onClick={handleManualCreate} disabled={creatingManual || !createRepo.trim() || !createCommit.trim()}>
+              {creatingManual ? "Creating..." : "Create Job"}
+            </button>
+            <button className="btn btn--secondary btn--sm" onClick={() => setShowCreate(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Fetch Latest Panel */}
       {showFetch && (
@@ -367,6 +424,18 @@ export default function CommitReviewJobPage() {
                           🔄
                         </button>
                       )}
+                      <button
+                        className="action-btn action-btn--clone"
+                        title="Create from this job"
+                        onClick={() => {
+                          setCreateOwner(job.githubOwner);
+                          setCreateRepo(job.githubRepo);
+                          setCreateCommit("");
+                          setShowCreate(true);
+                        }}
+                      >
+                        ⧉
+                      </button>
                       <button
                         className="action-btn action-btn--danger"
                         title="Delete Job"
