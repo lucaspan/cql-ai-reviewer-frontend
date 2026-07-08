@@ -1,0 +1,12 @@
+.commit-review-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.commit-review-empty {
+  padding: 40px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 15px;
+}

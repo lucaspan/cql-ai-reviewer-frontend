@@ -60,6 +60,7 @@ interface SummaryFindingsSetting {
 
 interface CommitReviewSetting {
   crawlerEnabled: boolean;
+  processorEnabled: boolean;
   minLinesChanged: number;
   startAfterDate: string;
   model: string;
@@ -1371,14 +1372,34 @@ export default function SettingsPage() {
           <div className="toggle-row__text">
             <span className="toggle-row__label">Crawler Enabled</span>
             <span className="toggle-row__desc">
-              Auto-process pending commit review jobs every 30s
+              Auto-create PENDING jobs from source DB every 30s
               {commitReviewSetting?.startAfterDate && (
-                <> — currently set to <strong>{new Date(commitReviewSetting.startAfterDate).toLocaleString()}</strong></>
+                <> — since <strong>{new Date(commitReviewSetting.startAfterDate).toLocaleString()}</strong></>
               )}
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>Start after:</span>
+          <button
+            className={`toggle-switch ${commitReviewSetting?.crawlerEnabled ? "toggle-switch--on" : ""}`}
+            onClick={() => {
+              if (commitReviewSetting) {
+                const enabling = !commitReviewSetting.crawlerEnabled;
+                if (enabling) {
+                  saveCommitReviewSetting({ ...commitReviewSetting, crawlerEnabled: true, startAfterDate: commitReviewDraftDate });
+                } else {
+                  saveCommitReviewSetting({ ...commitReviewSetting, crawlerEnabled: false });
+                  setCommitReviewDraftDate(new Date().toISOString());
+                }
+              }
+            }}
+            disabled={saving}
+          >
+            <span className="toggle-switch__knob" />
+          </button>
+        </div>
+
+        <div className="settings-section" style={{ marginTop: 0, paddingTop: 0, borderTop: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label className="form-label" style={{ margin: 0, fontSize: 12 }}>Start after:</label>
             <input
               className="form-input"
               type="datetime-local"
@@ -1391,26 +1412,27 @@ export default function SettingsPage() {
                 }
               }}
               disabled={saving || !!commitReviewSetting?.crawlerEnabled}
-              style={{ width: 200, padding: "4px 8px", fontSize: 12 }}
+              style={{ width: 200, padding: "6px 10px", fontSize: 13 }}
             />
-            <button
-              className={`toggle-switch ${commitReviewSetting?.crawlerEnabled ? "toggle-switch--on" : ""}`}
-              onClick={() => {
-                if (commitReviewSetting) {
-                  const enabling = !commitReviewSetting.crawlerEnabled;
-                  if (enabling) {
-                    saveCommitReviewSetting({ ...commitReviewSetting, crawlerEnabled: true, startAfterDate: commitReviewDraftDate });
-                  } else {
-                    saveCommitReviewSetting({ ...commitReviewSetting, crawlerEnabled: false });
-                    setCommitReviewDraftDate(new Date().toISOString());
-                  }
-                }
-              }}
-              disabled={saving}
-            >
-              <span className="toggle-switch__knob" />
-            </button>
           </div>
+        </div>
+
+        <div className="toggle-row">
+          <div className="toggle-row__text">
+            <span className="toggle-row__label">Processor Enabled</span>
+            <span className="toggle-row__desc">Auto-process PENDING jobs every 30s (clone repo, fetch diff, call LLM)</span>
+          </div>
+          <button
+            className={`toggle-switch ${commitReviewSetting?.processorEnabled ? "toggle-switch--on" : ""}`}
+            onClick={() => {
+              if (commitReviewSetting) {
+                saveCommitReviewSetting({ ...commitReviewSetting, processorEnabled: !commitReviewSetting.processorEnabled });
+              }
+            }}
+            disabled={saving}
+          >
+            <span className="toggle-switch__knob" />
+          </button>
         </div>
 
         <div className="settings-section">

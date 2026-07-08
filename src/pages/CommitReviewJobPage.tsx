@@ -1,7 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { getCommitReviewJobs, getCommitReviewJob, fetchLatestCommits, createCommitReviewJob } from "../api/jobApi";
+import {
+  getCommitReviewJobs,
+  getCommitReviewJob,
+  fetchLatestCommits,
+  createCommitReviewJob,
+  processCommitReviewJob,
+  processPendingCommitReviewJob,
+  retryCommitReviewJob,
+  deleteCommitReviewJob,
+  getCommitReviewJobActivities
+} from "../api/jobApi";
 import Pagination from "../components/Pagination";
-import "./ReportsPage.css";
+import ActivityModal from "../components/ActivityModal";
+import "../components/Modal.css";
+import "./JobsPage.css";
+import "./CommitReviewJobPage.css";
 
 interface CommitReviewJobRow {
   id: string;
@@ -42,10 +55,6 @@ export default function CommitReviewJobPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [dimensions, setDimensions] = useState<DimensionRow[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-
   const [filterRepo, setFilterRepo] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
@@ -54,6 +63,19 @@ export default function CommitReviewJobPage() {
   const [sourceCommits, setSourceCommits] = useState<SourceCommit[]>([]);
   const [fetching, setFetching] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Detail modal
+  const [detailJob, setDetailJob] = useState<CommitReviewJobRow | null>(null);
+  const [detailDimensions, setDetailDimensions] = useState<DimensionRow[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Activity modal (separate from detail)
+  const [activityJobId, setActivityJobId] = useState<string | null>(null);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+
+  // Processing
+  const [processingJobId, setProcessingJobId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,7 +128,7 @@ export default function CommitReviewJobPage() {
       setSourceCommits((prev) => prev.filter((c) => c.sha !== commit.sha));
       load();
     } catch {
-      // silent - likely duplicate
+      // skip duplicates
     } finally {
       setCreating(false);
     }
@@ -141,28 +163,79 @@ export default function CommitReviewJobPage() {
     }
   };
 
-  const handleExpand = async (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(id);
-    setDetailLoading(true);
+  const loadActivities = async (id: string) => {
+    setActivitiesLoading(true);
     try {
-      const detail = await getCommitReviewJob(id);
-      setDimensions(detail.dimensions ?? []);
+      const data = await getCommitReviewJobActivities(id);
+      setActivities(data);
     } catch {
-      setDimensions([]);
+      setActivities([]);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  const handleViewActivity = (id: string) => {
+    setActivityJobId(id);
+    setActivities([]);
+    loadActivities(id);
+  };
+
+  const handleViewDetail = async (job: CommitReviewJobRow) => {
+    setDetailJob(job);
+    setDetailLoading(true);
+    setDetailDimensions([]);
+    try {
+      const detail = await getCommitReviewJob(job.id);
+      setDetailDimensions(detail.dimensions ?? []);
+    } catch {
+      // silent
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleProcess = async (id: string) => {
+    setProcessingJobId(id);
+    try {
+      await processCommitReviewJob(id);
+      load();
+      if (detailJob?.id === id) handleViewDetail({ ...detailJob, status: "IN_PROGRESS" });
+    } catch {
+      // silent
+    } finally {
+      setProcessingJobId(null);
+    }
+  };
+
+  const handleProcessPending = async () => {
+    setProcessingJobId("__pending__");
+    try {
+      await processPendingCommitReviewJob();
+      load();
+    } catch {
+      // silent
+    } finally {
+      setProcessingJobId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCommitReviewJob(id);
+      if (detailJob?.id === id) setDetailJob(null);
+      load();
+    } catch {
+      // silent
     }
   };
 
   const formatDate = (d: string | null) => d ? new Date(d).toLocaleString() : "—";
 
   return (
-    <div className="reports-content">
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
+    <div className="commit-review-page">
+      {/* Toolbar */}
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <input
           className="form-input"
           placeholder="Filter by repo..."
@@ -183,10 +256,14 @@ export default function CommitReviewJobPage() {
           <option value="FAILED">FAILED</option>
         </select>
         <button className="btn btn--primary btn--sm" onClick={handleFetchLatest} disabled={fetching}>
-          {fetching ? "Fetching..." : "Fetch Latest Commits"}
+          {fetching ? "Fetching..." : "Fetch Latest"}
+        </button>
+        <button className="btn btn--secondary btn--sm" onClick={handleProcessPending} disabled={processingJobId !== null}>
+          {processingJobId === "__pending__" ? "Processing..." : "Process Pending"}
         </button>
       </div>
 
+      {/* Fetch Latest Panel */}
       {showFetch && (
         <div style={{ marginBottom: 16, padding: 16, background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -195,39 +272,25 @@ export default function CommitReviewJobPage() {
               <button className="btn btn--primary btn--sm" onClick={handleCreateAll} disabled={creating || sourceCommits.length === 0}>
                 {creating ? "Creating..." : "Create All"}
               </button>
-              <button className="btn btn--secondary btn--sm" onClick={() => setShowFetch(false)}>
-                Close
-              </button>
+              <button className="btn btn--secondary btn--sm" onClick={() => setShowFetch(false)}>Close</button>
             </div>
           </div>
           {sourceCommits.length > 0 && (
             <div style={{ maxHeight: 300, overflow: "auto" }}>
-              <table className="reports-table" style={{ fontSize: 12 }}>
+              <table className="jobs-table" style={{ fontSize: 12 }}>
                 <thead>
-                  <tr>
-                    <th>Repo</th>
-                    <th>SHA</th>
-                    <th>Author</th>
-                    <th>Lines</th>
-                    <th>Files</th>
-                    <th>Date</th>
-                    <th></th>
-                  </tr>
+                  <tr><th>Repo</th><th>SHA</th><th>Author</th><th>Lines</th><th>Files</th><th>Date</th><th></th></tr>
                 </thead>
                 <tbody>
                   {sourceCommits.map((c) => (
                     <tr key={`${c.component}-${c.sha}`}>
                       <td>{c.component}</td>
-                      <td className="reports-mono">{c.sha.slice(0, 7)}</td>
+                      <td className="job-id">{c.sha.slice(0, 7)}</td>
                       <td>{c.author}</td>
-                      <td className="reports-num">+{c.linesAdded} / -{c.linesDeleted}</td>
-                      <td className="reports-num">{c.filesChanged}</td>
-                      <td className="reports-date">{formatDate(c.commitDate)}</td>
-                      <td>
-                        <button className="btn btn--secondary btn--sm" onClick={() => handleCreateJob(c)} disabled={creating}>
-                          Create
-                        </button>
-                      </td>
+                      <td>+{c.linesAdded} / -{c.linesDeleted}</td>
+                      <td>{c.filesChanged}</td>
+                      <td>{formatDate(c.commitDate)}</td>
+                      <td><button className="btn btn--secondary btn--sm" onClick={() => handleCreateJob(c)} disabled={creating}>Create</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -237,100 +300,83 @@ export default function CommitReviewJobPage() {
         </div>
       )}
 
-      {loading && <div className="reports-empty">Loading...</div>}
+      {/* Jobs Table */}
+      {loading && <div className="commit-review-empty">Loading...</div>}
 
       {!loading && (
-        <div className="reports-table-wrapper">
-          <table className="reports-table">
+        <div className="jobs-table-wrapper">
+          <table className="jobs-table">
             <thead>
               <tr>
+                <th>Job ID</th>
                 <th>Repo</th>
                 <th>Commit</th>
                 <th>Author</th>
                 <th>Lines</th>
-                <th>Files</th>
                 <th>Status</th>
-                <th>Completed</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {jobs.length === 0 && (
-                <tr><td colSpan={8} className="reports-empty">No commit review jobs</td></tr>
+                <tr><td colSpan={8} className="commit-review-empty">No commit review jobs</td></tr>
               )}
               {jobs.map((job) => (
-                <>
-                  <tr
-                    key={job.id}
-                    onClick={() => handleExpand(job.id)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>{job.githubRepo}</td>
-                    <td className="reports-mono">{job.githubCommit.slice(0, 7)}</td>
-                    <td>{job.requestPayload?.author ?? "—"}</td>
-                    <td className="reports-num">
-                      +{job.requestPayload?.linesAdded ?? 0} / -{job.requestPayload?.linesDeleted ?? 0}
-                    </td>
-                    <td className="reports-num">{job.requestPayload?.filesChanged ?? "—"}</td>
-                    <td>
-                      <span className={`reports-badge ${job.status === "COMPLETED" ? "reports-badge--ok" : job.status === "FAILED" ? "reports-badge--err" : ""}`}>
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="reports-date">{formatDate(job.completedAt)}</td>
-                    <td className="reports-date">{formatDate(job.createdAt)}</td>
-                  </tr>
-                  {expandedId === job.id && (
-                    <tr key={`${job.id}-detail`}>
-                      <td colSpan={8} style={{ background: "#f9fafb", padding: 16 }}>
-                        {detailLoading && <div>Loading dimensions...</div>}
-                        {!detailLoading && dimensions.length === 0 && <div style={{ color: "#9ca3af" }}>No dimensions scored yet</div>}
-                        {!detailLoading && dimensions.length > 0 && (
-                          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
-                            <thead>
-                              <tr>
-                                <th style={{ textAlign: "left", padding: "4px 8px" }}>Dimension</th>
-                                <th style={{ textAlign: "left", padding: "4px 8px" }}>Type</th>
-                                <th style={{ textAlign: "center", padding: "4px 8px" }}>Score/Flag</th>
-                                <th style={{ textAlign: "left", padding: "4px 8px" }}>Reason</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {dimensions.map((d) => (
-                                <tr key={d.id} style={{ borderTop: "1px solid #e5e7eb" }}>
-                                  <td style={{ padding: "4px 8px", fontFamily: "monospace" }}>{d.dimension}</td>
-                                  <td style={{ padding: "4px 8px" }}>{d.type}</td>
-                                  <td style={{ padding: "4px 8px", textAlign: "center" }}>
-                                    {d.type === "score" ? (
-                                      <span style={{ fontWeight: 600, color: (d.score ?? 0) >= 7 ? "#dc2626" : (d.score ?? 0) >= 4 ? "#d97706" : "#059669" }}>
-                                        {d.score}/10
-                                      </span>
-                                    ) : (
-                                      <span style={{ fontWeight: 600, color: d.flagged ? "#dc2626" : "#059669" }}>
-                                        {d.flagged ? "FLAGGED" : "OK"}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td style={{ padding: "4px 8px", color: "#374151" }}>{d.reason ?? "—"}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                        {job.results?.summary && (
-                          <div style={{ marginTop: 12, padding: "8px 12px", background: "#eef2ff", borderRadius: 6, fontSize: 13 }}>
-                            <strong>Summary:</strong> {job.results.summary}
-                          </div>
-                        )}
-                        {job.error && (
-                          <div style={{ marginTop: 8, padding: "8px 12px", background: "#fef2f2", borderRadius: 6, fontSize: 13, color: "#dc2626" }}>
-                            <strong>Error:</strong> {job.error}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </>
+                <tr key={job.id}>
+                  <td>
+                    <span className="job-id" style={{ cursor: "pointer", color: "#6366f1" }} onClick={() => handleViewDetail(job)}>
+                      {job.id.slice(0, 8)}
+                    </span>
+                  </td>
+                  <td>{job.githubRepo}</td>
+                  <td className="job-id">{job.githubCommit.slice(0, 7)}</td>
+                  <td>{job.requestPayload?.author ?? "—"}</td>
+                  <td>+{job.requestPayload?.linesAdded ?? 0} / -{job.requestPayload?.linesDeleted ?? 0}</td>
+                  <td>
+                    <span className={`status-badge status-badge--${job.status.toLowerCase()}`}>
+                      {job.status}
+                    </span>
+                  </td>
+                  <td>{formatDate(job.createdAt)}</td>
+                  <td>
+                    <div className="actions-cell">
+                      <button
+                        className="action-btn action-btn--activity"
+                        title="View Activity Log"
+                        onClick={() => handleViewActivity(job.id)}
+                      >
+                        📋
+                      </button>
+                      {job.status === "PENDING" && (
+                        <button
+                          className="action-btn action-btn--process"
+                          title="Process Job"
+                          onClick={() => handleProcess(job.id)}
+                          disabled={processingJobId === job.id}
+                        >
+                          {processingJobId === job.id ? "⏳" : "▶"}
+                        </button>
+                      )}
+                      {job.status === "FAILED" && (
+                        <button
+                          className="action-btn action-btn--process"
+                          title="Retry Job"
+                          onClick={async () => { await retryCommitReviewJob(job.id); load(); }}
+                        >
+                          🔄
+                        </button>
+                      )}
+                      <button
+                        className="action-btn action-btn--danger"
+                        title="Delete Job"
+                        onClick={() => handleDelete(job.id)}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -338,11 +384,117 @@ export default function CommitReviewJobPage() {
       )}
 
       {pagination && (
-        <Pagination
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages}
-          onPageChange={setPage}
+        <Pagination currentPage={pagination.page} totalPages={pagination.totalPages} onPageChange={setPage} />
+      )}
+
+      {/* Activity Modal */}
+      {activityJobId && (
+        <ActivityModal
+          jobId={activityJobId}
+          activities={activities}
+          loading={activitiesLoading}
+          onClose={() => setActivityJobId(null)}
+          onRefresh={() => loadActivities(activityJobId)}
         />
+      )}
+
+      {/* Detail Modal */}
+      {detailJob && (
+        <div className="modal-backdrop" onClick={() => setDetailJob(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
+            <div className="modal__header">
+              <div>
+                <h2 className="modal__title">Commit Review Details</h2>
+                <p className="modal__subtitle" style={{ fontFamily: "monospace", fontSize: 12 }}>{detailJob.id}</p>
+              </div>
+              <button className="modal__close" onClick={() => setDetailJob(null)}>✕</button>
+            </div>
+
+            <div className="modal__body">
+              {/* Metadata */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 4 }}>Repository</div>
+                  <div style={{ fontSize: 14 }}>{detailJob.githubOwner}/{detailJob.githubRepo}</div>
+                </div>
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 4 }}>Commit</div>
+                  <div style={{ fontSize: 14, fontFamily: "monospace" }}>{detailJob.githubCommit}</div>
+                </div>
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 4 }}>Status</div>
+                  <div style={{ fontSize: 14 }}>{detailJob.status}</div>
+                </div>
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 4 }}>Author</div>
+                  <div style={{ fontSize: 14 }}>{detailJob.requestPayload?.author ?? "—"}</div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                {detailJob.status === "PENDING" && (
+                  <button className="btn btn--primary btn--sm" onClick={() => handleProcess(detailJob.id)} disabled={processingJobId === detailJob.id}>
+                    {processingJobId === detailJob.id ? "Processing..." : "Process"}
+                  </button>
+                )}
+                <button className="btn btn--danger btn--sm" onClick={() => handleDelete(detailJob.id)}>Delete</button>
+              </div>
+
+              {/* Error */}
+              {detailJob.error && (
+                <div style={{ marginBottom: 16, padding: 10, background: "#fef2f2", borderRadius: 6, color: "#dc2626", fontSize: 13 }}>
+                  <strong>Error:</strong> {detailJob.error}
+                </div>
+              )}
+
+              {/* Dimensions */}
+              {detailLoading && <div style={{ color: "#9ca3af", marginBottom: 16 }}>Loading...</div>}
+
+              {!detailLoading && detailDimensions.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 8 }}>Dimensions</h4>
+                  <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Dimension</th>
+                        <th style={{ textAlign: "center", padding: "6px 8px" }}>Result</th>
+                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailDimensions.map((d) => (
+                        <tr key={d.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                          <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{d.dimension}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                            {d.type === "score" ? (
+                              <span style={{ fontWeight: 600, color: (d.score ?? 0) >= 7 ? "#dc2626" : (d.score ?? 0) >= 4 ? "#d97706" : "#059669" }}>
+                                {d.score}/10
+                              </span>
+                            ) : (
+                              <span style={{ fontWeight: 600, color: d.flagged ? "#dc2626" : "#059669" }}>
+                                {d.flagged ? "FLAGGED" : "OK"}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "6px 8px", color: "#374151" }}>{d.reason ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Results Summary */}
+              {detailJob.results?.summary && (
+                <div style={{ marginBottom: 16, padding: 10, background: "#eef2ff", borderRadius: 6, fontSize: 13 }}>
+                  <strong>Summary:</strong> {detailJob.results.summary}
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

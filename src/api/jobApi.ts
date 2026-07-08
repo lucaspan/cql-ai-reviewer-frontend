@@ -461,6 +461,39 @@ export async function createCommitReviewJob(params: {
   return res.data;
 }
 
+export async function processCommitReviewJob(id: string): Promise<{ processed: boolean; jobId?: string }> {
+  const res = await apiFetch<{ processed: boolean; jobId?: string }>(`/commit-review-job/${id}/process`, {
+    method: "POST",
+  });
+  return res.data;
+}
+
+export async function processPendingCommitReviewJob(): Promise<{ processed: boolean; jobId?: string }> {
+  const res = await apiFetch<{ processed: boolean; jobId?: string }>("/commit-review-job/process-pending", {
+    method: "POST",
+  });
+  return res.data;
+}
+
+export async function retryCommitReviewJob(id: string): Promise<{ retried: boolean }> {
+  const res = await apiFetch<{ retried: boolean }>(`/commit-review-job/${id}/retry`, {
+    method: "POST",
+  });
+  return res.data;
+}
+
+export async function deleteCommitReviewJob(id: string): Promise<{ deleted: boolean }> {
+  const res = await apiFetch<{ deleted: boolean }>(`/commit-review-job/${id}`, {
+    method: "DELETE",
+  });
+  return res.data;
+}
+
+export async function getCommitReviewJobActivities(id: string): Promise<any[]> {
+  const res = await apiFetch<any>(`/commit-review-job/${id}/activity`);
+  return res.data?.data ?? res.data ?? [];
+}
+
 export async function batchAddEmailsToRepoConfigs(params: {
   repoPatterns: string[];
   emails: string[];
