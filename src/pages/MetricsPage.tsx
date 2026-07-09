@@ -153,7 +153,6 @@ export default function MetricsPage() {
               <th>Repository</th>
               <th>Type</th>
               <th>Date</th>
-              <th>Model</th>
               <th>Input</th>
               <th>Output</th>
               <th>Cache Read</th>
@@ -164,7 +163,7 @@ export default function MetricsPage() {
           <tbody>
             {jobsWithMetrics.length === 0 && (
               <tr>
-                <td colSpan={9} className="metrics-empty">
+                <td colSpan={8} className="metrics-empty">
                   No metrics data available
                 </td>
               </tr>
@@ -180,11 +179,6 @@ export default function MetricsPage() {
                   <span className="metrics-type-badge">{job.reviewJobType}</span>
                 </td>
                 <td>{formatDate(job.createdAt)}</td>
-                <td>
-                  <span className="metrics-model">
-                    {job.metrics?.model?.split(".").pop()?.split(":")[0] ?? "—"}
-                  </span>
-                </td>
                 <td>{formatTokens(job.metrics?.inputTokens ?? 0)}</td>
                 <td>{formatTokens(job.metrics?.outputTokens ?? 0)}</td>
                 <td>{formatTokens(job.metrics?.cacheReadTokens ?? 0)}</td>
@@ -256,7 +250,6 @@ export default function MetricsPage() {
                   <tr>
                     <th>Repository</th>
                     <th>Date</th>
-                    <th>Model</th>
                     <th>Input</th>
                     <th>Output</th>
                     <th>Cache Read</th>
@@ -269,7 +262,6 @@ export default function MetricsPage() {
                     <tr key={j.id}>
                       <td>{j.githubRepo}</td>
                       <td>{formatDate(j.createdAt)}</td>
-                      <td className="metrics-mono">{(j.metrics as any)?.model ?? "—"}</td>
                       <td>{formatTokens((j.metrics as any)?.totalInputTokens ?? j.metrics?.inputTokens ?? 0)}</td>
                       <td>{formatTokens(j.metrics?.outputTokens ?? 0)}</td>
                       <td>{formatTokens((j.metrics as any)?.cacheReadTokens ?? 0)}</td>
