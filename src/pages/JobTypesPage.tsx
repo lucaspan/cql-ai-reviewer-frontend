@@ -12,6 +12,9 @@ import {
   deleteJobType,
   getJobTypeVersions,
   rollbackJobType,
+  getCommitReviewJobTypes,
+  updateCommitReviewJobType,
+  getCommitReviewJobTypeVersions,
 } from "../api/jobApi";
 import "../components/CreateJobModal.css";
 import "./JobTypesPage.css";
@@ -175,6 +178,10 @@ export default function JobTypesPage() {
           onBack={() => setViewMode("detail")}
           onRollback={handleRollback}
         />
+      )}
+
+      {viewMode === "list" && (
+        <CommitReviewJobTypes showToast={showToast} />
       )}
 
       <div className="toast-container">
@@ -707,6 +714,288 @@ function JobTypeVersions({
                           <div className="jt-detail__kf-name">
                             {kf.filename}
                           </div>
+                          <pre className="jt-detail__code">{kf.content}</pre>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+      </div>
+    </>
+  );
+}
+
+
+function CommitReviewJobTypes({ showToast }: { showToast: (msg: string, type: "success" | "error" | "info") => void }) {
+  const [types, setTypes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ systemPromptTemplate: string; knowledgeFiles: string }>({ systemPromptTemplate: "", knowledgeFiles: "" });
+  const [saving, setSaving] = useState(false);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [versionsId, setVersionsId] = useState<string | null>(null);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getCommitReviewJobTypes();
+      setTypes(data);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleEdit = (t: any) => {
+    setEditingId(t.id);
+    setViewingId(null);
+    setEditForm({
+      systemPromptTemplate: t.systemPromptTemplate ?? "",
+      knowledgeFiles: JSON.stringify(t.knowledgeFiles ?? [], null, 2)
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    try {
+      let knowledgeFiles;
+      try { knowledgeFiles = JSON.parse(editForm.knowledgeFiles); } catch { showToast("Invalid JSON in knowledge files", "error"); setSaving(false); return; }
+      await updateCommitReviewJobType(editingId, {
+        systemPromptTemplate: editForm.systemPromptTemplate,
+        knowledgeFiles
+      });
+      showToast("Commit review job type updated", "success");
+      setEditingId(null);
+      load();
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleViewVersions = async (typeId: string) => {
+    setVersionsId(typeId);
+    setVersionsLoading(true);
+    try {
+      const data = await getCommitReviewJobTypeVersions(typeId);
+      setVersions(data);
+    } catch {
+      setVersions([]);
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const viewingType = viewingId ? types.find((t) => t.id === viewingId) : null;
+  const editingType = editingId ? types.find((t) => t.id === editingId) : null;
+
+  // Versions view
+  if (versionsId) {
+    const vType = types.find((t) => t.id === versionsId);
+    return (
+      <CommitReviewVersionsView
+        typeName={vType?.name ?? versionsId}
+        typeId={versionsId}
+        versions={versions}
+        loading={versionsLoading}
+        onBack={() => setVersionsId(null)}
+      />
+    );
+  }
+
+  // Detail view
+  if (viewingType && !editingId) {
+    return (
+      <>
+        <div className="jt-toolbar">
+          <div className="jt-toolbar__nav">
+            <button className="btn btn--secondary btn--sm" onClick={() => setViewingId(null)}>Back</button>
+            <h2 className="jt-toolbar__title">{viewingType.id} — {viewingType.name}</h2>
+          </div>
+          <div className="jt-toolbar__actions">
+            <button className="btn btn--secondary" onClick={() => handleViewVersions(viewingType.id)}>Version History</button>
+            <button className="btn btn--primary" onClick={() => handleEdit(viewingType)}>Edit</button>
+          </div>
+        </div>
+        <div className="jt-detail">
+          {viewingType.description && (
+            <div className="jt-detail__section">
+              <h3>Description</h3>
+              <p>{viewingType.description}</p>
+            </div>
+          )}
+          <div className="jt-detail__section">
+            <h3>System Prompt Template</h3>
+            <pre className="jt-detail__code">{viewingType.systemPromptTemplate}</pre>
+          </div>
+          {(viewingType.knowledgeFiles ?? []).length > 0 && (
+            <div className="jt-detail__section">
+              <h3>Knowledge Files ({viewingType.knowledgeFiles.length})</h3>
+              {viewingType.knowledgeFiles.map((kf: any, i: number) => (
+                <div key={i} className="jt-detail__kf">
+                  <div className="jt-detail__kf-name">{kf.filename}</div>
+                  <pre className="jt-detail__code">{kf.content}</pre>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // Edit view
+  if (editingType) {
+    return (
+      <>
+        <div className="jt-toolbar">
+          <div className="jt-toolbar__nav">
+            <button className="btn btn--secondary btn--sm" onClick={() => setEditingId(null)}>Cancel</button>
+            <h2 className="jt-toolbar__title">Edit: {editingType.id}</h2>
+          </div>
+          <div className="jt-toolbar__actions">
+            <button className="btn btn--primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+        <div className="jt-form">
+          <div className="form-field">
+            <label className="form-label">System Prompt Template *</label>
+            <textarea
+              className="form-input form-textarea jt-form__textarea"
+              value={editForm.systemPromptTemplate}
+              onChange={(e) => setEditForm((f) => ({ ...f, systemPromptTemplate: e.target.value }))}
+              rows={20}
+            />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Knowledge Files (JSON)</label>
+            <textarea
+              className="form-input form-textarea jt-form__textarea"
+              value={editForm.knowledgeFiles}
+              onChange={(e) => setEditForm((f) => ({ ...f, knowledgeFiles: e.target.value }))}
+              rows={12}
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // List view
+  return (
+    <>
+      <div className="jt-toolbar">
+        <h2 className="jt-toolbar__title">Commit Review Job Types</h2>
+        <div className="jt-toolbar__actions">
+          <button className="btn btn--secondary" onClick={load} disabled={loading}>Refresh</button>
+        </div>
+      </div>
+
+      <div className="jt-grid">
+        {loading && <div className="jt-empty">Loading…</div>}
+        {!loading && types.length === 0 && (
+          <div className="jt-empty">No commit review job types found. Run seeds to create defaults.</div>
+        )}
+        {!loading && types.map((t) => (
+          <div key={t.id} className="jt-card">
+            <div className="jt-card__header">
+              <span className="jt-card__id">{t.id}</span>
+              <span className="jt-card__name">{t.name}</span>
+            </div>
+            {t.description && <p className="jt-card__desc">{t.description}</p>}
+            <div className="jt-card__footer">
+              <span className="jt-card__date">
+                Updated {new Date(t.updatedAt).toLocaleDateString()}
+              </span>
+              <div className="jt-card__actions">
+                <button className="btn btn--secondary btn--sm" onClick={() => handleViewVersions(t.id)}>Versions</button>
+                <button className="btn btn--secondary btn--sm" onClick={() => setViewingId(t.id)}>View</button>
+                <button className="btn btn--primary btn--sm" onClick={() => handleEdit(t)}>Edit</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function CommitReviewVersionsView({
+  typeName,
+  typeId,
+  versions,
+  loading,
+  onBack,
+}: {
+  typeName: string;
+  typeId: string;
+  versions: any[];
+  loading: boolean;
+  onBack: () => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  return (
+    <>
+      <div className="jt-toolbar">
+        <div className="jt-toolbar__nav">
+          <button className="btn btn--secondary btn--sm" onClick={onBack}>
+            Back
+          </button>
+          <h2 className="jt-toolbar__title">Versions — {typeName}</h2>
+        </div>
+      </div>
+
+      <div className="jt-versions">
+        {loading && <div className="jt-empty">Loading versions…</div>}
+        {!loading && versions.length === 0 && (
+          <div className="jt-empty">No versions recorded yet</div>
+        )}
+        {!loading &&
+          versions.map((v, i) => (
+            <div key={v.id} className="jt-version-card">
+              <div
+                className="jt-version-card__header"
+                onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
+              >
+                <div className="jt-version-card__info">
+                  <span className="jt-version-card__number">v{v.version}</span>
+                  <span className="jt-version-card__name">{v.name}</span>
+                  {i === 0 && (
+                    <span className="jt-version-card__current">CURRENT</span>
+                  )}
+                </div>
+                <div className="jt-version-card__meta">
+                  <span className="jt-version-card__date">
+                    {new Date(v.createdAt).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              {expandedId === v.id && (
+                <div className="jt-version-card__body">
+                  {v.description && <p>{v.description}</p>}
+                  <div className="jt-detail__section">
+                    <h4>System Prompt</h4>
+                    <pre className="jt-detail__code">{v.systemPromptTemplate}</pre>
+                  </div>
+                  {v.knowledgeFiles && v.knowledgeFiles.length > 0 && (
+                    <div className="jt-detail__section">
+                      <h4>Knowledge Files ({v.knowledgeFiles.length})</h4>
+                      {v.knowledgeFiles.map((kf: any, ki: number) => (
+                        <div key={ki} className="jt-detail__kf">
+                          <div className="jt-detail__kf-name">{kf.filename}</div>
                           <pre className="jt-detail__code">{kf.content}</pre>
                         </div>
                       ))}

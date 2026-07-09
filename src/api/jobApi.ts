@@ -489,6 +489,34 @@ export async function deleteCommitReviewJob(id: string): Promise<{ deleted: bool
   return res.data;
 }
 
+export async function getCommitReviewJobTypes(): Promise<any[]> {
+  const res = await apiFetch<any[]>("/commit-review-job/types");
+  return res.data;
+}
+
+export async function getCommitReviewJobType(id: string): Promise<any> {
+  const res = await apiFetch<any>(`/commit-review-job/types/${id}`);
+  return res.data;
+}
+
+export async function updateCommitReviewJobType(id: string, data: any): Promise<any> {
+  const res = await apiFetch<any>(`/commit-review-job/types/${id}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data;
+}
+
+export async function getCommitReviewJobMetrics(): Promise<any[]> {
+  const res = await apiFetch<any>("/commit-review-job?status=COMPLETED&limit=1000");
+  return res.data?.data ?? res.data ?? [];
+}
+
+export async function getCommitReviewJobTypeVersions(typeId: string): Promise<any[]> {
+  const res = await apiFetch<any>(`/commit-review-job/types/${typeId}/versions`);
+  return res.data?.data ?? res.data ?? [];
+}
+
 export async function getCommitReviewJobActivities(id: string): Promise<any[]> {
   const res = await apiFetch<any>(`/commit-review-job/${id}/activity`);
   return res.data?.data ?? res.data ?? [];

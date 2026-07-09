@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getJobs } from "../api/jobApi";
+import { getJobs, getCommitReviewJobMetrics } from "../api/jobApi";
 import type {
   GithubReviewJob,
   ReviewMetrics,
@@ -20,10 +20,12 @@ interface JobWithMetrics {
 
 export default function MetricsPage() {
   const [jobs, setJobs] = useState<JobWithMetrics[]>([]);
+  const [commitJobs, setCommitJobs] = useState<JobWithMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   // Client-side pagination of the table only; summary cards stay aggregated over all rows.
   const [page, setPage] = useState(1);
   const [pageLimit, setPageLimit] = useState(20);
+  const [commitPage, setCommitPage] = useState(1);
 
   useEffect(() => {
     loadMetrics();
@@ -32,7 +34,10 @@ export default function MetricsPage() {
   const loadMetrics = async () => {
     setLoading(true);
     try {
-      const data = await getJobs({ status: "COMPLETED", includeMetrics: true });
+      const [data, commitData] = await Promise.all([
+        getJobs({ status: "COMPLETED", includeMetrics: true }),
+        getCommitReviewJobMetrics()
+      ]);
       const mapped: JobWithMetrics[] = data.map((j: Partial<GithubReviewJob>) => ({
         id: j.id!,
         githubRepo: j.githubRepo ?? "",
@@ -43,6 +48,17 @@ export default function MetricsPage() {
         metrics: (j.results as any)?.metrics ?? null,
       }));
       setJobs(mapped);
+
+      const commitMapped: JobWithMetrics[] = (commitData as any[]).map((j: any) => ({
+        id: j.id,
+        githubRepo: j.githubRepo ?? "",
+        githubBranch: "",
+        reviewJobType: "COMMIT_REVIEW",
+        status: j.status ?? "",
+        createdAt: j.createdAt ?? "",
+        metrics: j.results?.metrics ?? null,
+      }));
+      setCommitJobs(commitMapped);
     } catch {
       // silent
     } finally {
@@ -190,6 +206,91 @@ export default function MetricsPage() {
           }}
         />
       )}
+
+      {/* Commit Review Metrics */}
+      {(() => {
+        const crJobs = commitJobs.filter((j) => j.metrics);
+        if (crJobs.length === 0) return null;
+        const crTotalCost = crJobs.reduce((sum, j) => sum + (j.metrics?.totalCost ?? 0), 0);
+        const crTotalTokens = crJobs.reduce((sum, j) => sum + (j.metrics?.totalTokens ?? 0), 0);
+        const crTotalInputTokens = crJobs.reduce((sum, j) => sum + ((j.metrics as any)?.totalInputTokens ?? j.metrics?.inputTokens ?? 0), 0);
+        const crTotalOutputTokens = crJobs.reduce((sum, j) => sum + (j.metrics?.outputTokens ?? 0), 0);
+        const crTotalPages = Math.max(1, Math.ceil(crJobs.length / pageLimit));
+        const crSafePage = Math.min(commitPage, crTotalPages);
+        const crPagedJobs = crJobs.slice((crSafePage - 1) * pageLimit, crSafePage * pageLimit);
+        const crPageMeta: PaginationMeta = { page: crSafePage, limit: pageLimit, total: crJobs.length, totalPages: crTotalPages, hasNext: crSafePage < crTotalPages, hasPrevious: crSafePage > 1 };
+
+        return (
+          <>
+            <h3 style={{ marginTop: 32, marginBottom: 12, fontSize: 16, fontWeight: 700 }}>Commit Review Jobs</h3>
+            <div className="metrics-summary">
+              <div className="metrics-card">
+                <span className="metrics-card__value">{crJobs.length}</span>
+                <span className="metrics-card__label">Completed</span>
+              </div>
+              <div className="metrics-card">
+                <span className="metrics-card__value">{formatTokens(crTotalInputTokens)}</span>
+                <span className="metrics-card__label">Input Tokens</span>
+              </div>
+              <div className="metrics-card">
+                <span className="metrics-card__value">{formatTokens(crTotalOutputTokens)}</span>
+                <span className="metrics-card__label">Output Tokens</span>
+              </div>
+              <div className="metrics-card">
+                <span className="metrics-card__value">{formatTokens(crTotalTokens)}</span>
+                <span className="metrics-card__label">Total Tokens</span>
+              </div>
+              <div className="metrics-card">
+                <span className="metrics-card__value">{formatCost(crTotalCost)}</span>
+                <span className="metrics-card__label">Total Cost</span>
+              </div>
+              <div className="metrics-card">
+                <span className="metrics-card__value">{crJobs.length > 0 ? formatCost(crTotalCost / crJobs.length) : "—"}</span>
+                <span className="metrics-card__label">Avg Cost / Job</span>
+              </div>
+            </div>
+
+            <div className="metrics-table-wrapper">
+              <table className="metrics-table">
+                <thead>
+                  <tr>
+                    <th>Repository</th>
+                    <th>Date</th>
+                    <th>Model</th>
+                    <th>Input</th>
+                    <th>Output</th>
+                    <th>Cache Read</th>
+                    <th>Cache Write</th>
+                    <th>Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {crPagedJobs.map((j) => (
+                    <tr key={j.id}>
+                      <td>{j.githubRepo}</td>
+                      <td>{formatDate(j.createdAt)}</td>
+                      <td className="metrics-mono">{(j.metrics as any)?.model ?? "—"}</td>
+                      <td>{formatTokens((j.metrics as any)?.totalInputTokens ?? j.metrics?.inputTokens ?? 0)}</td>
+                      <td>{formatTokens(j.metrics?.outputTokens ?? 0)}</td>
+                      <td>{formatTokens((j.metrics as any)?.cacheReadTokens ?? 0)}</td>
+                      <td>{formatTokens((j.metrics as any)?.cacheWriteTokens ?? 0)}</td>
+                      <td>{formatCost(j.metrics?.totalCost ?? 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {crJobs.length > pageLimit && (
+              <Pagination
+                meta={crPageMeta}
+                onPageChange={setCommitPage}
+                onLimitChange={() => {}}
+              />
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

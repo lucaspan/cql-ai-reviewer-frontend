@@ -537,7 +537,7 @@ export default function CommitReviewJobPage() {
                           <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{d.dimension}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center" }}>
                             {d.type === "score" ? (
-                              <span style={{ fontWeight: 600, color: (d.score ?? 0) >= 7 ? "#dc2626" : (d.score ?? 0) >= 4 ? "#d97706" : "#059669" }}>
+                              <span style={{ fontWeight: 600, color: (d.score ?? 0) <= 3 ? "#dc2626" : (d.score ?? 0) <= 6 ? "#d97706" : "#059669" }}>
                                 {d.score}/10
                               </span>
                             ) : (
@@ -557,7 +557,20 @@ export default function CommitReviewJobPage() {
               {/* Results Summary */}
               {detailJob.results?.summary && (
                 <div style={{ marginBottom: 16, padding: 10, background: "#eef2ff", borderRadius: 6, fontSize: 13 }}>
-                  <strong>Summary:</strong> {detailJob.results.summary}
+                  <strong>Summary:</strong> {typeof detailJob.results.summary === "string"
+                    ? detailJob.results.summary
+                    : detailJob.results.summary.executiveSummary ?? JSON.stringify(detailJob.results.summary)}
+                </div>
+              )}
+
+              {detailJob.results && (
+                <div style={{ marginBottom: 16 }}>
+                  <details>
+                    <summary style={{ fontSize: 12, cursor: "pointer", color: "#6366f1", marginBottom: 8 }}>Raw Results JSON</summary>
+                    <pre style={{ background: "#1e1e2e", color: "#cdd6f4", padding: 14, borderRadius: 8, fontSize: 12, overflow: "auto", maxHeight: 400, whiteSpace: "pre-wrap" }}>
+                      {JSON.stringify(detailJob.results, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               )}
 
