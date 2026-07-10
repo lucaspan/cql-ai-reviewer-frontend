@@ -53,6 +53,7 @@ export default function CommitReviewJobPage() {
   const [jobs, setJobs] = useState<CommitReviewJobRow[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [page, setPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(20);
   const [loading, setLoading] = useState(true);
 
   const [filterRepo, setFilterRepo] = useState("");
@@ -89,7 +90,7 @@ export default function CommitReviewJobPage() {
     try {
       const result = await getCommitReviewJobs({
         page,
-        limit: 20,
+        limit: pageLimit,
         githubRepo: filterRepo || undefined,
         status: filterStatus || undefined
       });
@@ -100,7 +101,7 @@ export default function CommitReviewJobPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filterRepo, filterStatus]);
+  }, [page, pageLimit, filterRepo, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -481,7 +482,11 @@ export default function CommitReviewJobPage() {
       )}
 
       {pagination && (
-        <Pagination currentPage={pagination.page} totalPages={pagination.totalPages} onPageChange={setPage} />
+        <Pagination
+          meta={pagination}
+          onPageChange={setPage}
+          onLimitChange={(limit) => { setPage(1); setPageLimit(limit); }}
+        />
       )}
 
       {/* Activity Modal */}

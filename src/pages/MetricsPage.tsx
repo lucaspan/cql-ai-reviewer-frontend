@@ -26,6 +26,7 @@ export default function MetricsPage() {
   const [page, setPage] = useState(1);
   const [pageLimit, setPageLimit] = useState(20);
   const [commitPage, setCommitPage] = useState(1);
+  const [commitPageLimit, setCommitPageLimit] = useState(20);
 
   useEffect(() => {
     loadMetrics();
@@ -209,10 +210,10 @@ export default function MetricsPage() {
         const crTotalTokens = crJobs.reduce((sum, j) => sum + (j.metrics?.totalTokens ?? 0), 0);
         const crTotalInputTokens = crJobs.reduce((sum, j) => sum + ((j.metrics as any)?.totalInputTokens ?? j.metrics?.inputTokens ?? 0), 0);
         const crTotalOutputTokens = crJobs.reduce((sum, j) => sum + (j.metrics?.outputTokens ?? 0), 0);
-        const crTotalPages = Math.max(1, Math.ceil(crJobs.length / pageLimit));
+        const crTotalPages = Math.max(1, Math.ceil(crJobs.length / commitPageLimit));
         const crSafePage = Math.min(commitPage, crTotalPages);
-        const crPagedJobs = crJobs.slice((crSafePage - 1) * pageLimit, crSafePage * pageLimit);
-        const crPageMeta: PaginationMeta = { page: crSafePage, limit: pageLimit, total: crJobs.length, totalPages: crTotalPages, hasNext: crSafePage < crTotalPages, hasPrevious: crSafePage > 1 };
+        const crPagedJobs = crJobs.slice((crSafePage - 1) * commitPageLimit, crSafePage * commitPageLimit);
+        const crPageMeta: PaginationMeta = { page: crSafePage, limit: commitPageLimit, total: crJobs.length, totalPages: crTotalPages, hasNext: crSafePage < crTotalPages, hasPrevious: crSafePage > 1 };
 
         return (
           <>
@@ -273,11 +274,11 @@ export default function MetricsPage() {
               </table>
             </div>
 
-            {crJobs.length > pageLimit && (
+            {crJobs.length > 0 && (
               <Pagination
                 meta={crPageMeta}
                 onPageChange={setCommitPage}
-                onLimitChange={() => {}}
+                onLimitChange={(limit) => { setCommitPageLimit(limit); setCommitPage(1); }}
               />
             )}
           </>
