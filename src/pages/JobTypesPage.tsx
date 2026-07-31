@@ -27,6 +27,43 @@ interface Toast {
 
 type ViewMode = "list" | "detail" | "edit" | "create" | "versions";
 
+/**
+ * Build a shareable Markdown document for a job type. Intentionally omits the
+ * module prompt template — this is meant for sharing the review's intent
+ * (system prompt, summary prompt, diff user prompt, knowledge files) with
+ * other people, not the internal per-module plumbing.
+ */
+function buildJobTypeMarkdown(jobType: ReviewJobType): string {
+  const parts: string[] = [];
+
+  parts.push(`# ${jobType.name} (\`${jobType.id}\`)`);
+
+  if (jobType.description) {
+    parts.push(jobType.description);
+  }
+
+  if (jobType.systemPromptTemplate) {
+    parts.push(`## System Prompt\n\n${jobType.systemPromptTemplate}`);
+  }
+
+  if (jobType.summaryPrompt) {
+    parts.push(`## Summary Prompt\n\n${jobType.summaryPrompt}`);
+  }
+
+  if (jobType.diffUserPromptTemplate) {
+    parts.push(`## Diff User Prompt\n\n${jobType.diffUserPromptTemplate}`);
+  }
+
+  if (jobType.knowledgeFiles && jobType.knowledgeFiles.length > 0) {
+    const kfSections = jobType.knowledgeFiles
+      .map((kf) => `### \`${kf.filename}\`\n\n${kf.content}`)
+      .join("\n\n");
+    parts.push(`## Knowledge Files\n\n${kfSections}`);
+  }
+
+  return parts.join("\n\n");
+}
+
 export default function JobTypesPage() {
   const [jobTypes, setJobTypes] = useState<ReviewJobType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -140,6 +177,7 @@ export default function JobTypesPage() {
           onBack={() => setViewMode("list")}
           onEdit={() => setViewMode("edit")}
           onVersions={() => handleViewVersions(selectedType.id)}
+          showToast={showToast}
         />
       )}
 
@@ -282,12 +320,23 @@ function JobTypeDetail({
   onBack,
   onEdit,
   onVersions,
+  showToast,
 }: {
   jobType: ReviewJobType;
   onBack: () => void;
   onEdit: () => void;
   onVersions: () => void;
+  showToast: (message: string, type?: Toast["type"]) => void;
 }) {
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(buildJobTypeMarkdown(jobType));
+      showToast("Copied Markdown to clipboard", "success");
+    } catch {
+      showToast("Failed to copy to clipboard", "error");
+    }
+  };
+
   return (
     <>
       <div className="jt-toolbar">
@@ -300,6 +349,9 @@ function JobTypeDetail({
           </h2>
         </div>
         <div className="jt-toolbar__actions">
+          <button className="btn btn--secondary" onClick={handleCopy}>
+            Copy as MD
+          </button>
           <button className="btn btn--secondary" onClick={onVersions}>
             Version History
           </button>
