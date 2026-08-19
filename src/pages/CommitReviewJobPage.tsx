@@ -332,20 +332,6 @@ export default function CommitReviewJobPage() {
         }}>
           Download Report
         </button>
-        <button className="btn btn--secondary btn--sm" onClick={() => {
-          fetch("/api/commit-review-job/export-view", { headers: { "x-internal-api-key": import.meta.env.VITE_API_KEY as string } })
-            .then((r) => r.blob())
-            .then((blob) => {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `commit-review-view-${new Date().toISOString().slice(0, 10)}.xlsx`;
-              a.click();
-              URL.revokeObjectURL(url);
-            });
-        }}>
-          Download View
-        </button>
       </div>
 
       {/* Manual Create Panel */}
