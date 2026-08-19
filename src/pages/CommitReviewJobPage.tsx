@@ -47,6 +47,15 @@ interface JobResult {
   scatteredFeatureChecks: boolean | null;
   unnecessaryAbstraction: boolean | null;
   duplicatedHelper: boolean | null;
+  errorHandling: boolean | null;
+  security: boolean | null;
+  resiliency: boolean | null;
+  cache: boolean | null;
+  codeDuplication: boolean | null;
+  fault: boolean | null;
+  backdoor: boolean | null;
+  overallCodingScore: number | null;
+  codeChangeImpact: "positive" | "neutral" | "negative" | null;
   feedback: Record<string, any> | null;
   metrics: Record<string, any> | null;
 }
@@ -59,7 +68,9 @@ const SCORE_DIMENSIONS = [
 
 const FLAG_DIMENSIONS = [
   "incidentalComplexity", "filePushedOver1k", "adHocBranching",
-  "scatteredFeatureChecks", "unnecessaryAbstraction", "duplicatedHelper"
+  "scatteredFeatureChecks", "unnecessaryAbstraction", "duplicatedHelper",
+  "errorHandling", "security", "resiliency",
+  "cache", "codeDuplication", "fault", "backdoor"
 ] as const;
 
 interface SourceCommit {
@@ -606,6 +617,35 @@ export default function CommitReviewJobPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Overall Assessment */}
+              {(detailResult?.overallCodingScore != null || detailResult?.codeChangeImpact) && (
+                <div style={{ marginBottom: 16, padding: 10, background: "#f9fafb", borderRadius: 6, fontSize: 13, display: "flex", gap: 24 }}>
+                  {detailResult.overallCodingScore != null && (
+                    <div>
+                      <strong>Overall Score:</strong>{" "}
+                      <span style={{ fontWeight: 600, color: detailResult.overallCodingScore <= 3 ? "#dc2626" : detailResult.overallCodingScore <= 6 ? "#d97706" : "#059669" }}>
+                        {detailResult.overallCodingScore}/10
+                      </span>
+                    </div>
+                  )}
+                  {detailResult.codeChangeImpact && (
+                    <div>
+                      <strong>Impact:</strong>{" "}
+                      <span style={{
+                        fontWeight: 600,
+                        color: detailResult.codeChangeImpact === "positive" ? "#059669"
+                          : detailResult.codeChangeImpact === "negative" ? "#dc2626" : "#6b7280"
+                      }}>
+                        {detailResult.codeChangeImpact.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  {detailResult.feedback?.overallAssessment && (
+                    <div style={{ color: "#374151" }}>{detailResult.feedback.overallAssessment}</div>
+                  )}
                 </div>
               )}
 
