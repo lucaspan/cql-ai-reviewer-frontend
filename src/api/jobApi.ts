@@ -484,8 +484,8 @@ export async function getCommitReviewJobs(params?: {
 
 export async function getCommitReviewJob(
   id: string,
-): Promise<{ job: any; dimensions: any[] }> {
-  const res = await apiFetch<{ job: any; dimensions: any[] }>(
+): Promise<{ job: any; result: any | undefined }> {
+  const res = await apiFetch<{ job: any; result: any | undefined }>(
     `/commit-review-job/${id}`,
   );
   return res.data;

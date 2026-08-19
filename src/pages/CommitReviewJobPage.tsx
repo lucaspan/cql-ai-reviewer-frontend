@@ -24,20 +24,43 @@ interface CommitReviewJobRow {
   status: string;
   reviewJobType: string | null;
   requestPayload: { author?: string; commitDate?: string; linesAdded?: number; linesDeleted?: number; filesChanged?: number };
-  results: any;
+  results: any; // deprecated — kept for backward compat with old jobs
   error: string | null;
   completedAt: string | null;
   createdAt: string;
 }
 
-interface DimensionRow {
+interface JobResult {
   id: string;
-  dimension: string;
-  type: "score" | "flag";
-  score: number | null;
-  flagged: boolean | null;
-  reason: string | null;
+  commitReviewJobId: string;
+  structuralRegression: number | null;
+  missedSimplification: number | null;
+  fileSizeExplosion: number | null;
+  spaghettiGrowth: number | null;
+  hackyAbstraction: number | null;
+  unnecessaryChurn: number | null;
+  boundaryLeak: number | null;
+  missedDecomposition: number | null;
+  incidentalComplexity: boolean | null;
+  filePushedOver1k: boolean | null;
+  adHocBranching: boolean | null;
+  scatteredFeatureChecks: boolean | null;
+  unnecessaryAbstraction: boolean | null;
+  duplicatedHelper: boolean | null;
+  feedback: Record<string, any> | null;
+  metrics: Record<string, any> | null;
 }
+
+const SCORE_DIMENSIONS = [
+  "structuralRegression", "missedSimplification", "fileSizeExplosion",
+  "spaghettiGrowth", "hackyAbstraction", "unnecessaryChurn",
+  "boundaryLeak", "missedDecomposition"
+] as const;
+
+const FLAG_DIMENSIONS = [
+  "incidentalComplexity", "filePushedOver1k", "adHocBranching",
+  "scatteredFeatureChecks", "unnecessaryAbstraction", "duplicatedHelper"
+] as const;
 
 interface SourceCommit {
   component: string;
@@ -74,7 +97,7 @@ export default function CommitReviewJobPage() {
 
   // Detail modal
   const [detailJob, setDetailJob] = useState<CommitReviewJobRow | null>(null);
-  const [detailDimensions, setDetailDimensions] = useState<DimensionRow[]>([]);
+  const [detailResult, setDetailResult] = useState<JobResult | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Activity modal (separate from detail)
@@ -212,10 +235,10 @@ export default function CommitReviewJobPage() {
   const handleViewDetail = async (job: CommitReviewJobRow) => {
     setDetailJob(job);
     setDetailLoading(true);
-    setDetailDimensions([]);
+    setDetailResult(null);
     try {
       const detail = await getCommitReviewJob(job.id);
-      setDetailDimensions(detail.dimensions ?? []);
+      setDetailResult(detail.result ?? null);
     } catch {
       // silent
     } finally {
@@ -553,7 +576,7 @@ export default function CommitReviewJobPage() {
               {/* Dimensions */}
               {detailLoading && <div style={{ color: "#9ca3af", marginBottom: 16 }}>Loading...</div>}
 
-              {!detailLoading && detailDimensions.length > 0 && (
+              {!detailLoading && detailResult && (
                 <div style={{ marginBottom: 20 }}>
                   <h4 style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 8 }}>Dimensions</h4>
                   <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
@@ -561,47 +584,60 @@ export default function CommitReviewJobPage() {
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <th style={{ textAlign: "left", padding: "6px 8px" }}>Dimension</th>
                         <th style={{ textAlign: "center", padding: "6px 8px" }}>Result</th>
-                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Reason</th>
+                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Feedback</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {detailDimensions.map((d) => (
-                        <tr key={d.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                          <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{d.dimension}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                            {d.type === "score" ? (
-                              <span style={{ fontWeight: 600, color: (d.score ?? 0) <= 3 ? "#dc2626" : (d.score ?? 0) <= 6 ? "#d97706" : "#059669" }}>
-                                {d.score}/10
+                      {SCORE_DIMENSIONS.map((key) => {
+                        const val = detailResult[key];
+                        if (val == null) return null;
+                        return (
+                          <tr key={key} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                            <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{key}</td>
+                            <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              <span style={{ fontWeight: 600, color: val <= 3 ? "#dc2626" : val <= 6 ? "#d97706" : "#059669" }}>
+                                {val}/10
                               </span>
-                            ) : (
-                              <span style={{ fontWeight: 600, color: d.flagged ? "#dc2626" : "#059669" }}>
-                                {d.flagged ? "FLAGGED" : "OK"}
+                            </td>
+                            <td style={{ padding: "6px 8px", color: "#374151" }}>{detailResult.feedback?.[key] ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
+                      {FLAG_DIMENSIONS.map((key) => {
+                        const val = detailResult[key];
+                        if (val == null) return null;
+                        return (
+                          <tr key={key} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                            <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{key}</td>
+                            <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              <span style={{ fontWeight: 600, color: val ? "#dc2626" : "#059669" }}>
+                                {val ? "FLAGGED" : "OK"}
                               </span>
-                            )}
-                          </td>
-                          <td style={{ padding: "6px 8px", color: "#374151" }}>{d.reason ?? "—"}</td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td style={{ padding: "6px 8px", color: "#374151" }}>{detailResult.feedback?.[key] ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
 
-              {/* Results Summary */}
-              {detailJob.results?.summary && (
+              {/* Summary (from feedback.summary) */}
+              {detailResult?.feedback?.summary && (
                 <div style={{ marginBottom: 16, padding: 10, background: "#eef2ff", borderRadius: 6, fontSize: 13 }}>
-                  <strong>Summary:</strong> {typeof detailJob.results.summary === "string"
-                    ? detailJob.results.summary
-                    : detailJob.results.summary.executiveSummary ?? JSON.stringify(detailJob.results.summary)}
+                  <strong>Summary:</strong> {typeof detailResult.feedback.summary === "string"
+                    ? detailResult.feedback.summary
+                    : detailResult.feedback.summary.executiveSummary ?? JSON.stringify(detailResult.feedback.summary)}
                 </div>
               )}
 
-              {detailJob.results && (
+              {detailResult?.metrics && (
                 <div style={{ marginBottom: 16 }}>
                   <details>
-                    <summary style={{ fontSize: 12, cursor: "pointer", color: "#6366f1", marginBottom: 8 }}>Raw Results JSON</summary>
+                    <summary style={{ fontSize: 12, cursor: "pointer", color: "#6366f1", marginBottom: 8 }}>Metrics</summary>
                     <pre style={{ background: "#1e1e2e", color: "#cdd6f4", padding: 14, borderRadius: 8, fontSize: 12, overflow: "auto", maxHeight: 400, whiteSpace: "pre-wrap" }}>
-                      {JSON.stringify(detailJob.results, null, 2)}
+                      {JSON.stringify(detailResult.metrics, null, 2)}
                     </pre>
                   </details>
                 </div>
