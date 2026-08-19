@@ -8,6 +8,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
 import DevToolsPage from "./pages/DevToolsPage";
 import CommitReviewJobPage from "./pages/CommitReviewJobPage";
+import GitHubLoginPage from "./pages/GitHubLoginPage";
 import "./App.css";
 
 type Page =
@@ -19,7 +20,8 @@ type Page =
   | "projects"
   | "commit-reviews"
   | "settings"
-  | "dev-tools";
+  | "dev-tools"
+  | "github-login";
 
 // Nav is grouped into two tiers: WORK (daily, output-producing) and CONFIGURE
 // (occasional setup).
@@ -41,6 +43,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
       { id: "job-types", label: "Job Types" },
       { id: "settings", label: "Settings" },
       { id: "dev-tools", label: "Dev Tools" },
+      { id: "github-login", label: "GitHub Login" },
     ],
   },
 ];
@@ -55,9 +58,16 @@ const PAGE_SUBTITLE: Record<Page, string> = {
   "job-types": "Job Types",
   settings: "Settings",
   "dev-tools": "Dev Tools",
+  "github-login": "GitHub Login",
 };
 
-function PageShell({ subtitle, children }: { subtitle: string; children: React.ReactNode }) {
+function PageShell({
+  subtitle,
+  children,
+}: {
+  subtitle: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="jobs-page">
       <header className="jobs-page__header">
@@ -70,7 +80,13 @@ function PageShell({ subtitle, children }: { subtitle: string; children: React.R
 }
 
 function App() {
-  const [page, setPage] = useState<Page>("jobs");
+  // Open the GitHub Login page directly when GitHub redirects back to the callback URL.
+  const [page, setPage] = useState<Page>(() =>
+    typeof window !== "undefined" &&
+    window.location.pathname === "/auth/callback"
+      ? "github-login"
+      : "jobs",
+  );
   // Sidebar starts open on desktop widths, closed on narrow screens.
   const [navOpen, setNavOpen] = useState<boolean>(() =>
     typeof window !== "undefined" ? window.innerWidth >= 1024 : true,
@@ -89,21 +105,59 @@ function App() {
       case "jobs":
         return <JobsPage />;
       case "job-types":
-        return <PageShell subtitle={PAGE_SUBTITLE["job-types"]}><JobTypesPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE["job-types"]}>
+            <JobTypesPage />
+          </PageShell>
+        );
       case "metrics":
-        return <PageShell subtitle={PAGE_SUBTITLE.metrics}><MetricsPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE.metrics}>
+            <MetricsPage />
+          </PageShell>
+        );
       case "reports":
-        return <PageShell subtitle={PAGE_SUBTITLE.reports}><ReportsPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE.reports}>
+            <ReportsPage />
+          </PageShell>
+        );
       case "repo-config":
-        return <PageShell subtitle={PAGE_SUBTITLE["repo-config"]}><RepoConfigPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE["repo-config"]}>
+            <RepoConfigPage />
+          </PageShell>
+        );
       case "projects":
-        return <PageShell subtitle={PAGE_SUBTITLE.projects}><ProjectsPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE.projects}>
+            <ProjectsPage />
+          </PageShell>
+        );
       case "settings":
-        return <PageShell subtitle={PAGE_SUBTITLE.settings}><SettingsPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE.settings}>
+            <SettingsPage />
+          </PageShell>
+        );
       case "commit-reviews":
-        return <PageShell subtitle={PAGE_SUBTITLE["commit-reviews"]}><CommitReviewJobPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE["commit-reviews"]}>
+            <CommitReviewJobPage />
+          </PageShell>
+        );
       case "dev-tools":
-        return <PageShell subtitle={PAGE_SUBTITLE["dev-tools"]}><DevToolsPage /></PageShell>;
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE["dev-tools"]}>
+            <DevToolsPage />
+          </PageShell>
+        );
+      case "github-login":
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE["github-login"]}>
+            <GitHubLoginPage />
+          </PageShell>
+        );
     }
   };
 
@@ -118,7 +172,13 @@ function App() {
           aria-expanded={false}
           aria-controls="app-sidebar"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+          >
             <path
               d="M4 7h16M4 12h16M4 17h16"
               stroke="currentColor"
@@ -143,7 +203,13 @@ function App() {
             onClick={() => setNavOpen(false)}
             aria-label="Close navigation"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
               <path
                 d="M6 6l12 12M18 6L6 18"
                 stroke="currentColor"
@@ -174,7 +240,11 @@ function App() {
 
       {/* Scrim closes the drawer when it overlays content on narrow screens. */}
       {navOpen && (
-        <div className="app-scrim" onClick={() => setNavOpen(false)} aria-hidden />
+        <div
+          className="app-scrim"
+          onClick={() => setNavOpen(false)}
+          aria-hidden
+        />
       )}
 
       <main className="app-main">{renderPage()}</main>

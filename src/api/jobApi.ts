@@ -181,10 +181,14 @@ export async function followUpJob(
 
 // --- Job Type API ---
 
-export async function getJobTypes(params?: ListParams): Promise<ReviewJobType[]> {
+export async function getJobTypes(
+  params?: ListParams,
+): Promise<ReviewJobType[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<ReviewJobType>>(`/job-type?${query.toString()}`);
+  const res = await apiFetch<Paginated<ReviewJobType>>(
+    `/job-type?${query.toString()}`,
+  );
   return res.data.data;
 }
 
@@ -314,58 +318,86 @@ export async function getReportViewPaginated<T>(
 ): Promise<Paginated<T>> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<T>>(`/report/${view}?${query.toString()}`);
+  const res = await apiFetch<Paginated<T>>(
+    `/report/${view}?${query.toString()}`,
+  );
   return res.data;
 }
 
-export async function getIssueJobView(params?: ListParams): Promise<IssueJobRow[]> {
+export async function getIssueJobView(
+  params?: ListParams,
+): Promise<IssueJobRow[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<IssueJobRow>>(`/report/issue-job?${query.toString()}`);
+  const res = await apiFetch<Paginated<IssueJobRow>>(
+    `/report/issue-job?${query.toString()}`,
+  );
   return res.data.data;
 }
 
-export async function getIssueDetailView(params?: ListParams): Promise<IssueDetailRow[]> {
+export async function getIssueDetailView(
+  params?: ListParams,
+): Promise<IssueDetailRow[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<IssueDetailRow>>(`/report/issue-detail?${query.toString()}`);
+  const res = await apiFetch<Paginated<IssueDetailRow>>(
+    `/report/issue-detail?${query.toString()}`,
+  );
   return res.data.data;
 }
 
 export async function getMdJobView(params?: ListParams): Promise<MdJobRow[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<MdJobRow>>(`/report/md-job?${query.toString()}`);
+  const res = await apiFetch<Paginated<MdJobRow>>(
+    `/report/md-job?${query.toString()}`,
+  );
   return res.data.data;
 }
 
-export async function getMdDetailView(params?: ListParams): Promise<MdDetailRow[]> {
+export async function getMdDetailView(
+  params?: ListParams,
+): Promise<MdDetailRow[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<MdDetailRow>>(`/report/md-detail?${query.toString()}`);
+  const res = await apiFetch<Paginated<MdDetailRow>>(
+    `/report/md-detail?${query.toString()}`,
+  );
   return res.data.data;
 }
 
-export async function getMdLabelView(params?: ListParams): Promise<MdLabelRow[]> {
+export async function getMdLabelView(
+  params?: ListParams,
+): Promise<MdLabelRow[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<MdLabelRow>>(`/report/md-label?${query.toString()}`);
+  const res = await apiFetch<Paginated<MdLabelRow>>(
+    `/report/md-label?${query.toString()}`,
+  );
   return res.data.data;
 }
 
-export async function getMdAudienceView(params?: ListParams): Promise<MdAudienceRow[]> {
+export async function getMdAudienceView(
+  params?: ListParams,
+): Promise<MdAudienceRow[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<MdAudienceRow>>(`/report/md-audience?${query.toString()}`);
+  const res = await apiFetch<Paginated<MdAudienceRow>>(
+    `/report/md-audience?${query.toString()}`,
+  );
   return res.data.data;
 }
 
 // --- Repo Config API ---
 
-export async function getRepoConfigs(params?: ListParams): Promise<RepoConfig[]> {
+export async function getRepoConfigs(
+  params?: ListParams,
+): Promise<RepoConfig[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<RepoConfig>>(`/repo-config?${query.toString()}`);
+  const res = await apiFetch<Paginated<RepoConfig>>(
+    `/repo-config?${query.toString()}`,
+  );
   return res.data.data;
 }
 
@@ -405,18 +437,29 @@ export async function deleteRepoConfig(
   return res.data;
 }
 
-export async function dismissFinding(findingId: string, reason?: string): Promise<{ dismissed: boolean }> {
-  const res = await apiFetch<{ dismissed: boolean }>(`/job/findings/${findingId}/dismiss`, {
-    method: "POST",
-    body: JSON.stringify({ reason }),
-  });
+export async function dismissFinding(
+  findingId: string,
+  reason?: string,
+): Promise<{ dismissed: boolean }> {
+  const res = await apiFetch<{ dismissed: boolean }>(
+    `/job/findings/${findingId}/dismiss`,
+    {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    },
+  );
   return res.data;
 }
 
-export async function reactivateFinding(findingId: string): Promise<{ reactivated: boolean }> {
-  const res = await apiFetch<{ reactivated: boolean }>(`/job/findings/${findingId}/reactivate`, {
-    method: "POST",
-  });
+export async function reactivateFinding(
+  findingId: string,
+): Promise<{ reactivated: boolean }> {
+  const res = await apiFetch<{ reactivated: boolean }>(
+    `/job/findings/${findingId}/reactivate`,
+    {
+      method: "POST",
+    },
+  );
   return res.data;
 }
 
@@ -433,12 +476,18 @@ export async function getCommitReviewJobs(params?: {
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.githubRepo) query.set("githubRepo", params.githubRepo);
   if (params?.status) query.set("status", params.status);
-  const res = await apiFetch<{ data: any[]; pagination: any }>(`/commit-review-job?${query.toString()}`);
+  const res = await apiFetch<{ data: any[]; pagination: any }>(
+    `/commit-review-job?${query.toString()}`,
+  );
   return res.data;
 }
 
-export async function getCommitReviewJob(id: string): Promise<{ job: any; dimensions: any[] }> {
-  const res = await apiFetch<{ job: any; dimensions: any[] }>(`/commit-review-job/${id}`);
+export async function getCommitReviewJob(
+  id: string,
+): Promise<{ job: any; dimensions: any[] }> {
+  const res = await apiFetch<{ job: any; dimensions: any[] }>(
+    `/commit-review-job/${id}`,
+  );
   return res.data;
 }
 
@@ -461,28 +510,46 @@ export async function createCommitReviewJob(params: {
   return res.data;
 }
 
-export async function processCommitReviewJob(id: string): Promise<{ processed: boolean; jobId?: string }> {
-  const res = await apiFetch<{ processed: boolean; jobId?: string }>(`/commit-review-job/${id}/process`, {
-    method: "POST",
-  });
+export async function processCommitReviewJob(
+  id: string,
+): Promise<{ processed: boolean; jobId?: string }> {
+  const res = await apiFetch<{ processed: boolean; jobId?: string }>(
+    `/commit-review-job/${id}/process`,
+    {
+      method: "POST",
+    },
+  );
   return res.data;
 }
 
-export async function processPendingCommitReviewJob(): Promise<{ processed: boolean; jobId?: string }> {
-  const res = await apiFetch<{ processed: boolean; jobId?: string }>("/commit-review-job/process-pending", {
-    method: "POST",
-  });
+export async function processPendingCommitReviewJob(): Promise<{
+  processed: boolean;
+  jobId?: string;
+}> {
+  const res = await apiFetch<{ processed: boolean; jobId?: string }>(
+    "/commit-review-job/process-pending",
+    {
+      method: "POST",
+    },
+  );
   return res.data;
 }
 
-export async function retryCommitReviewJob(id: string): Promise<{ retried: boolean }> {
-  const res = await apiFetch<{ retried: boolean }>(`/commit-review-job/${id}/retry`, {
-    method: "POST",
-  });
+export async function retryCommitReviewJob(
+  id: string,
+): Promise<{ retried: boolean }> {
+  const res = await apiFetch<{ retried: boolean }>(
+    `/commit-review-job/${id}/retry`,
+    {
+      method: "POST",
+    },
+  );
   return res.data;
 }
 
-export async function deleteCommitReviewJob(id: string): Promise<{ deleted: boolean }> {
+export async function deleteCommitReviewJob(
+  id: string,
+): Promise<{ deleted: boolean }> {
   const res = await apiFetch<{ deleted: boolean }>(`/commit-review-job/${id}`, {
     method: "DELETE",
   });
@@ -499,7 +566,10 @@ export async function getCommitReviewJobType(id: string): Promise<any> {
   return res.data;
 }
 
-export async function updateCommitReviewJobType(id: string, data: any): Promise<any> {
+export async function updateCommitReviewJobType(
+  id: string,
+  data: any,
+): Promise<any> {
   const res = await apiFetch<any>(`/commit-review-job/types/${id}`, {
     method: "POST",
     body: JSON.stringify(data),
@@ -508,12 +578,18 @@ export async function updateCommitReviewJobType(id: string, data: any): Promise<
 }
 
 export async function getCommitReviewJobMetrics(): Promise<any[]> {
-  const res = await apiFetch<any>("/commit-review-job?status=COMPLETED&limit=1000");
+  const res = await apiFetch<any>(
+    "/commit-review-job?status=COMPLETED&limit=1000",
+  );
   return res.data?.data ?? res.data ?? [];
 }
 
-export async function getCommitReviewJobTypeVersions(typeId: string): Promise<any[]> {
-  const res = await apiFetch<any>(`/commit-review-job/types/${typeId}/versions`);
+export async function getCommitReviewJobTypeVersions(
+  typeId: string,
+): Promise<any[]> {
+  const res = await apiFetch<any>(
+    `/commit-review-job/types/${typeId}/versions`,
+  );
   return res.data?.data ?? res.data ?? [];
 }
 
@@ -585,10 +661,11 @@ export async function pollSqs(): Promise<{
   created: number;
   filtered: number;
 }> {
-  const res = await apiFetch<{ processed: number; created: number; filtered: number }>(
-    "/job/poll-sqs",
-    { method: "POST" },
-  );
+  const res = await apiFetch<{
+    processed: number;
+    created: number;
+    filtered: number;
+  }>("/job/poll-sqs", { method: "POST" });
   return res.data;
 }
 
@@ -650,7 +727,9 @@ export async function generateFindingsAnalysis(): Promise<{
 export async function getProjects(params?: ListParams): Promise<Project[]> {
   const query = new URLSearchParams();
   applyListParams(query, params);
-  const res = await apiFetch<Paginated<Project>>(`/project?${query.toString()}`);
+  const res = await apiFetch<Paginated<Project>>(
+    `/project?${query.toString()}`,
+  );
   return res.data.data;
 }
 
@@ -773,9 +852,7 @@ export async function upsertAppCatPermission(params: {
   return res.data;
 }
 
-export async function deleteAppCatPermission(
-  appCatId: string,
-): Promise<void> {
+export async function deleteAppCatPermission(appCatId: string): Promise<void> {
   await apiFetch<{ deleted: boolean }>(
     `/app-cat/${encodeURIComponent(appCatId)}`,
     { method: "DELETE" },
@@ -793,6 +870,39 @@ export async function testModel(params: {
     prompt: string;
     response: string;
   }>("/dev/test-model", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}
+
+export async function exchangeGithubCode(params: {
+  code: string;
+  redirectUri?: string;
+}): Promise<{ accessToken: string; tokenType: string; scope: string }> {
+  const res = await apiFetch<{
+    accessToken: string;
+    tokenType: string;
+    scope: string;
+  }>("/auth/github/exchange", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}
+
+export interface GithubUser {
+  login: string;
+  id: number;
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
+export async function validateGithubToken(params: {
+  accessToken: string;
+}): Promise<GithubUser> {
+  const res = await apiFetch<GithubUser>("/auth/github/validate", {
     method: "POST",
     body: JSON.stringify(params),
   });
