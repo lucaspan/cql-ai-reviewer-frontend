@@ -20,6 +20,9 @@ import type {
   Project,
   ProjectRepo,
   ProjectRun,
+  ProjectKnowledge,
+  ProjectKnowledgeActivity,
+  ProjectKnowledgeHistory,
   AppCatPermission,
   Paginated,
   ListParams,
@@ -821,6 +824,67 @@ export async function getProjectRuns(
     `/project/${encodeURIComponent(projectId)}/runs?${query.toString()}`,
   );
   return res.data.data;
+}
+
+export async function getProjectKnowledge(
+  projectId: string,
+): Promise<ProjectKnowledge[]> {
+  const res = await apiFetch<ProjectKnowledge[]>(
+    `/project/${encodeURIComponent(projectId)}/knowledge`,
+  );
+  return res.data;
+}
+
+export async function createRepoProfileEntries(
+  projectId: string,
+): Promise<ProjectKnowledge[]> {
+  const res = await apiFetch<ProjectKnowledge[]>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/repo-profiles`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function startKnowledgeCollection(
+  projectId: string,
+  knowledgeId: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}/start`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function getKnowledgeActivity(
+  projectId: string,
+  knowledgeId: string,
+): Promise<ProjectKnowledgeActivity[]> {
+  const res = await apiFetch<ProjectKnowledgeActivity[]>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}/activity`,
+  );
+  return res.data;
+}
+
+export async function getKnowledgeHistory(
+  projectId: string,
+  knowledgeId: string,
+): Promise<ProjectKnowledgeHistory[]> {
+  const res = await apiFetch<ProjectKnowledgeHistory[]>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}/history`,
+  );
+  return res.data;
+}
+
+export async function deleteProjectKnowledge(
+  projectId: string,
+  knowledgeId: string,
+): Promise<{ deleted: boolean }> {
+  const res = await apiFetch<{ deleted: boolean }>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
 }
 
 // --- App Catalog Permissions ---

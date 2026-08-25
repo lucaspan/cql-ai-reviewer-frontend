@@ -9,12 +9,22 @@ import {
   createProjectRun,
   processProjectRun,
   getProjectRuns,
+  getProjectKnowledge,
+  createRepoProfileEntries,
+  startKnowledgeCollection,
+  deleteProjectKnowledge,
+  getKnowledgeActivity,
+  getKnowledgeHistory,
 } from "../api/jobApi";
 import type {
   Project,
   ProjectRepo,
   ProjectRun,
   ProjectRunStatus,
+  ProjectKnowledge,
+  ProjectKnowledgeStatus,
+  ProjectKnowledgeActivity,
+  ProjectKnowledgeHistory,
 } from "../types/job.types";
 import "./ProjectsPage.css";
 import "../components/Modal.css";
@@ -138,15 +148,23 @@ function ProjectDetail({
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [runs, setRuns] = useState<ProjectRun[]>([]);
+  const [knowledge, setKnowledge] = useState<ProjectKnowledge[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingRepo, setAddingRepo] = useState(false);
   const [running, setRunning] = useState(false);
+  const [generatingProfiles, setGeneratingProfiles] = useState(false);
+  const [viewingKnowledgeId, setViewingKnowledgeId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [p, r] = await Promise.all([getProject(projectId), getProjectRuns(projectId)]);
+      const [p, r, k] = await Promise.all([
+        getProject(projectId),
+        getProjectRuns(projectId),
+        getProjectKnowledge(projectId),
+      ]);
       setProject(p);
       setRuns(r);
+      setKnowledge(k);
     } catch {
       /* silent */
     } finally {
@@ -202,6 +220,13 @@ function ProjectDetail({
         </div>
         <div className="pj-detail-actions">
           <button
+            className="btn btn--secondary btn--sm"
+            onClick={refresh}
+            title="Refresh project data"
+          >
+            ↻ Refresh
+          </button>
+          <button
             className="btn btn--primary btn--sm"
             onClick={handleRun}
             disabled={!canRun}
@@ -236,7 +261,6 @@ function ProjectDetail({
                   <th>Owner</th>
                   <th>Repo</th>
                   <th>Branch</th>
-                  <th>Role</th>
                   <th></th>
                 </tr>
               </thead>
@@ -247,17 +271,106 @@ function ProjectDetail({
                     <td className="pj-mono">{r.githubRepo}</td>
                     <td>{r.githubBranch}</td>
                     <td>
-                      {r.role ? (
-                        <span className="pj-pill">{r.role}</span>
-                      ) : (
-                        <span className="pj-muted">—</span>
-                      )}
-                    </td>
-                    <td>
                       <button
                         className="btn btn--danger btn--sm"
                         onClick={() => handleRemoveRepo(r.id)}
                         aria-label={`Remove ${r.githubRepo}`}
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Knowledge Base */}
+      <section className="pj-section">
+        <div className="pj-section__head">
+          <h3 className="pj-section__title">Knowledge Base</h3>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={async () => {
+              setGeneratingProfiles(true);
+              try {
+                await createRepoProfileEntries(projectId);
+                await refresh();
+              } finally {
+                setGeneratingProfiles(false);
+              }
+            }}
+            disabled={generatingProfiles || repos.length === 0}
+          >
+            {generatingProfiles ? "Creating…" : "Add Repo Profiles"}
+          </button>
+        </div>
+        {knowledge.length === 0 ? (
+          <div className="pj-inline-empty">
+            No knowledge yet. Click <strong>Generate Repo Profiles</strong> to start.
+          </div>
+        ) : (
+          <div className="pj-table-wrapper">
+            <table className="pj-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Key</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>Ver</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {knowledge.map((k) => (
+                  <tr key={k.id}>
+                    <td><span className="pj-pill">{k.knowledgeType}</span></td>
+                    <td className="pj-mono">{k.key}</td>
+                    <td>{k.source}</td>
+                    <td><KnowledgeStatusBadge status={k.status} error={k.error} /></td>
+                    <td>{k.version}</td>
+                    <td className="pj-actions-cell">
+                      {(k.status === "pending" || k.status === "failed") && (
+                        <button
+                          className="btn btn--primary btn--sm"
+                          onClick={async () => {
+                            await startKnowledgeCollection(projectId, k.id);
+                            refresh();
+                          }}
+                          aria-label={`Start ${k.key}`}
+                        >
+                          Start
+                        </button>
+                      )}
+                      {k.status === "active" && (
+                        <button
+                          className="btn btn--primary btn--sm"
+                          onClick={async () => {
+                            await startKnowledgeCollection(projectId, k.id);
+                            refresh();
+                          }}
+                          aria-label={`Regenerate ${k.key}`}
+                        >
+                          Regenerate
+                        </button>
+                      )}
+                      <button
+                        className="btn btn--secondary btn--sm"
+                        onClick={() => setViewingKnowledgeId(k.id)}
+                        aria-label={`View ${k.key}`}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="btn btn--danger btn--sm"
+                        onClick={async () => {
+                          await deleteProjectKnowledge(projectId, k.id);
+                          refresh();
+                        }}
+                        aria-label={`Delete ${k.key}`}
                       >
                         ✕
                       </button>
@@ -303,6 +416,15 @@ function ProjectDetail({
             setAddingRepo(false);
             refresh();
           }}
+        />
+      )}
+
+      {viewingKnowledgeId && (
+        <KnowledgeDetailModal
+          projectId={projectId}
+          knowledgeId={viewingKnowledgeId}
+          knowledge={knowledge.find((k) => k.id === viewingKnowledgeId) ?? null}
+          onClose={() => setViewingKnowledgeId(null)}
         />
       )}
     </div>
@@ -354,6 +476,26 @@ function StatusBadge({ status, small }: { status: ProjectRunStatus; small?: bool
   };
   return (
     <span className={`pj-status ${map[status]} ${small ? "pj-status--sm" : ""}`}>
+      {label[status]}
+    </span>
+  );
+}
+
+function KnowledgeStatusBadge({ status, error }: { status: ProjectKnowledgeStatus; error: string | null }) {
+  const cls: Record<ProjectKnowledgeStatus, string> = {
+    pending: "pj-status--pending",
+    collecting: "pj-status--progress",
+    active: "pj-status--done",
+    failed: "pj-status--failed",
+  };
+  const label: Record<ProjectKnowledgeStatus, string> = {
+    pending: "Pending",
+    collecting: "Collecting",
+    active: "Active",
+    failed: "Failed",
+  };
+  return (
+    <span className={`pj-status pj-status--sm ${cls[status]}`} title={error ?? undefined}>
       {label[status]}
     </span>
   );
@@ -464,7 +606,6 @@ function AddRepoModal({
     githubOwner: "BMO-Prod",
     githubRepo: "",
     githubBranch: "master",
-    role: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -485,7 +626,6 @@ function AddRepoModal({
         githubOwner: form.githubOwner.trim(),
         githubRepo: form.githubRepo.trim(),
         githubBranch: form.githubBranch.trim() || "master",
-        role: form.role.trim() || null,
       });
       onAdded();
     } finally {
@@ -535,17 +675,6 @@ function AddRepoModal({
                 onChange={(e) => setForm((f) => ({ ...f, githubBranch: e.target.value }))}
               />
             </div>
-            <div className="form-field">
-              <label className="form-label">
-                Role <span className="form-optional">(tag)</span>
-              </label>
-              <input
-                className="form-input"
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                placeholder="frontend / backend / infra"
-              />
-            </div>
           </div>
           <div className="modal__footer">
             <button type="button" className="btn btn--secondary" onClick={onClose} disabled={submitting}>
@@ -560,6 +689,147 @@ function AddRepoModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function KnowledgeDetailModal({
+  projectId,
+  knowledgeId,
+  knowledge,
+  onClose,
+}: {
+  projectId: string;
+  knowledgeId: string;
+  knowledge: ProjectKnowledge | null;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"value" | "activity" | "history">("value");
+  const [activity, setActivity] = useState<ProjectKnowledgeActivity[]>([]);
+  const [history, setHistory] = useState<ProjectKnowledgeHistory[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadTab = useCallback(async (t: "value" | "activity" | "history") => {
+    if (t === "value") return;
+    setLoading(true);
+    try {
+      if (t === "activity") {
+        setActivity(await getKnowledgeActivity(projectId, knowledgeId));
+      } else {
+        setHistory(await getKnowledgeHistory(projectId, knowledgeId));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, knowledgeId]);
+
+  useEffect(() => { loadTab(tab); }, [tab, loadTab]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal__header">
+          <div>
+            <h2 className="modal__title">Knowledge Detail</h2>
+            <p className="modal__subtitle">
+              {knowledge?.key ?? knowledgeId.slice(0, 8)}
+              {knowledge && (
+                <> &middot; v{knowledge.version} &middot; <KnowledgeStatusBadge status={knowledge.status} error={knowledge.error} /></>
+              )}
+            </p>
+          </div>
+          <button className="modal__close" onClick={onClose} type="button" aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div className="pj-tabs">
+          {(["value", "activity", "history"] as const).map((t) => (
+            <button
+              key={t}
+              className={`pj-tab ${tab === t ? "pj-tab--active" : ""}`}
+              onClick={() => setTab(t)}
+            >
+              {t === "value" ? "Current Value" : t === "activity" ? "Activity Log" : "Version History"}
+            </button>
+          ))}
+        </div>
+
+        <div className="modal__body">
+          {tab === "value" && knowledge && (
+            <div className="pj-knowledge-value">
+              {knowledge.error && (
+                <div className="pj-run__error">{knowledge.error}</div>
+              )}
+              <pre className="pj-json">{JSON.stringify(knowledge.value, null, 2)}</pre>
+            </div>
+          )}
+
+          {tab === "activity" && (
+            loading ? <div className="pj-state">Loading...</div> : (
+              activity.length === 0 ? (
+                <div className="pj-inline-empty">No activity yet.</div>
+              ) : (
+                <div className="activity-list">
+                  {[...activity].reverse().map((a, i) => (
+                    <div key={a.id ?? i} className="activity-item">
+                      <div className="activity-item__header">
+                        <span className="pj-pill">{a.action}</span>
+                        <span className="activity-item__time">
+                          v{a.version} &middot; {new Date(a.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="activity-item__message">{a.message}</p>
+                      {a.metadata && (
+                        <pre className="activity-item__metadata">
+                          {JSON.stringify(a.metadata, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            )
+          )}
+
+          {tab === "history" && (
+            loading ? <div className="pj-state">Loading...</div> : (
+              history.length === 0 ? (
+                <div className="pj-inline-empty">No previous versions.</div>
+              ) : (
+                <div className="pj-history-list">
+                  {history.map((h) => (
+                    <div key={h.id} className="pj-history-item">
+                      <div className="pj-history-item__head">
+                        <span className="pj-pill">v{h.version}</span>
+                        <span className="pj-muted">{h.source}</span>
+                        <span className="pj-muted">{new Date(h.createdAt).toLocaleString()}</span>
+                      </div>
+                      {h.metrics && (
+                        <div className="pj-metrics">
+                          <span>Model: {h.metrics.model}</span>
+                          <span>In: {h.metrics.inputTokens.toLocaleString()}</span>
+                          <span>Out: {h.metrics.outputTokens.toLocaleString()}</span>
+                          <span>Cache R/W: {h.metrics.cacheReadTokens.toLocaleString()}/{h.metrics.cacheWriteTokens.toLocaleString()}</span>
+                          <span>Steps: {h.metrics.steps}</span>
+                          <span>Cost: ${h.metrics.totalCost.toFixed(4)}</span>
+                          <span>{(h.metrics.durationMs / 1000).toFixed(1)}s</span>
+                        </div>
+                      )}
+                      <details>
+                        <summary>Value</summary>
+                        <pre className="pj-json">{JSON.stringify(h.value, null, 2)}</pre>
+                      </details>
+                    </div>
+                  ))}
+                </div>
+              )
+            )
+          )}
+        </div>
       </div>
     </div>
   );

@@ -263,8 +263,6 @@ export interface ProjectRepo {
   githubOwner: string;
   githubRepo: string;
   githubBranch: string;
-  role: string | null;
-  promptDescription: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -301,6 +299,52 @@ export interface ProjectRun {
   createdAt: string;
   updatedAt: string;
   stages?: ProjectRunStage[];
+}
+
+export type ProjectKnowledgeStatus = "pending" | "collecting" | "active" | "failed";
+
+export interface ProjectKnowledge {
+  id: string;
+  projectId: string;
+  knowledgeType: string;
+  key: string;
+  value: Record<string, unknown>;
+  source: string;
+  status: ProjectKnowledgeStatus;
+  error: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectKnowledgeActivity {
+  id: string;
+  projectKnowledgeId: string;
+  version: number;
+  action: string;
+  message: string;
+  metadata?: unknown;
+  createdAt: string;
+}
+
+export interface ProjectKnowledgeHistory {
+  id: string;
+  projectKnowledgeId: string;
+  value: Record<string, unknown>;
+  source: string;
+  version: number;
+  metrics: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    totalCost: number;
+    steps: number;
+    compactions: number;
+    durationMs: number;
+  } | null;
+  createdAt: string;
 }
 
 export interface AppCatPermission {
