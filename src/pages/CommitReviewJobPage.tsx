@@ -669,6 +669,17 @@ export default function CommitReviewJobPage() {
                 </div>
               )}
 
+              {detailResult?.feedback && (
+                <div style={{ marginBottom: 16 }}>
+                  <details>
+                    <summary style={{ fontSize: 12, cursor: "pointer", color: "#6366f1", marginBottom: 8 }}>Full Feedback JSON</summary>
+                    <pre style={{ background: "#1e1e2e", color: "#cdd6f4", padding: 14, borderRadius: 8, fontSize: 12, overflow: "auto", maxHeight: 400, whiteSpace: "pre-wrap" }}>
+                      {JSON.stringify(detailResult.feedback, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
