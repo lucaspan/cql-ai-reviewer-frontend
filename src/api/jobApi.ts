@@ -845,6 +845,16 @@ export async function createRepoProfileEntries(
   return res.data;
 }
 
+export async function createThreatMapEntry(
+  projectId: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/threat-map`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function startKnowledgeCollection(
   projectId: string,
   knowledgeId: string,

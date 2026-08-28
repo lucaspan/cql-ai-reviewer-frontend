@@ -11,6 +11,7 @@ import {
   getProjectRuns,
   getProjectKnowledge,
   createRepoProfileEntries,
+  createThreatMapEntry,
   startKnowledgeCollection,
   deleteProjectKnowledge,
   getKnowledgeActivity,
@@ -305,6 +306,16 @@ function ProjectDetail({
             disabled={generatingProfiles || repos.length === 0}
           >
             {generatingProfiles ? "Creating…" : "Add Repo Profiles"}
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={async () => {
+              await createThreatMapEntry(projectId);
+              await refresh();
+            }}
+            disabled={repos.length === 0}
+          >
+            Add Threat Map
           </button>
         </div>
         {knowledge.length === 0 ? (
