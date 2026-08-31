@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getProjects,
   createProject,
@@ -27,6 +27,7 @@ import type {
   ProjectKnowledgeActivity,
   ProjectKnowledgeHistory,
 } from "../types/job.types";
+import ThreatMapGraph from "../components/ThreatMapGraph";
 import "./ProjectsPage.css";
 import "../components/Modal.css";
 
@@ -287,6 +288,7 @@ function ProjectDetail({
           </div>
         )}
       </section>
+
 
       {/* Knowledge Base */}
       <section className="pj-section">
@@ -718,13 +720,22 @@ function KnowledgeDetailModal({
   knowledge: ProjectKnowledge | null;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"value" | "activity" | "history">("value");
+  type TabKey = "value" | "graph" | "activity" | "history";
+  const [tab, setTab] = useState<TabKey>("value");
   const [activity, setActivity] = useState<ProjectKnowledgeActivity[]>([]);
   const [history, setHistory] = useState<ProjectKnowledgeHistory[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadTab = useCallback(async (t: "value" | "activity" | "history") => {
-    if (t === "value") return;
+  // Check if this entry has a graph file
+  const graphJson = useMemo(() => {
+    const val = knowledge?.value as { files?: Array<{ filename: string; content: string }> } | undefined;
+    const graphFile = val?.files?.find(f => f.filename === "threat-map-graph.json");
+    if (!graphFile) return null;
+    try { return JSON.parse(graphFile.content); } catch { return null; }
+  }, [knowledge]);
+
+  const loadTab = useCallback(async (t: TabKey) => {
+    if (t === "value" || t === "graph") return;
     setLoading(true);
     try {
       if (t === "activity") {
@@ -741,7 +752,7 @@ function KnowledgeDetailModal({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={tab === "graph" ? { width: "95vw", maxWidth: "95vw", height: "90vh", maxHeight: "90vh" } : undefined} onClick={(e) => e.stopPropagation()}>
         <div className="modal__header">
           <div>
             <h2 className="modal__title">Knowledge Detail</h2>
@@ -758,18 +769,22 @@ function KnowledgeDetailModal({
         </div>
 
         <div className="pj-tabs">
-          {(["value", "activity", "history"] as const).map((t) => (
+          {(["value", ...(graphJson ? ["graph"] : []), "activity", "history"] as TabKey[]).map((t) => (
             <button
               key={t}
               className={`pj-tab ${tab === t ? "pj-tab--active" : ""}`}
               onClick={() => setTab(t)}
             >
-              {t === "value" ? "Current Value" : t === "activity" ? "Activity Log" : "Version History"}
+              {{ value: "Current Value", graph: "Graph", activity: "Activity Log", history: "Version History" }[t]}
             </button>
           ))}
         </div>
 
-        <div className="modal__body">
+        <div className="modal__body" style={tab === "graph" ? { padding: 0, height: "70vh" } : undefined}>
+          {tab === "graph" && graphJson && (
+            <ThreatMapGraph graph={graphJson} />
+          )}
+
           {tab === "value" && knowledge && (
             <div className="pj-knowledge-value">
               {knowledge.error && (
