@@ -255,8 +255,6 @@ export interface ListParams {
 
 // --- Threat-modeling projects (AI vuln pipeline) ---
 
-export type ProjectRunStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
-
 export interface ProjectRepo {
   id: string;
   projectId: string;
@@ -275,30 +273,6 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   repos?: ProjectRepo[];
-}
-
-export interface ProjectRunStage {
-  id: string;
-  projectRunId: string;
-  stage: string;
-  ordinal: number;
-  status: ProjectRunStatus;
-  results: Record<string, unknown> | null;
-  error: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProjectRun {
-  id: string;
-  projectId: string;
-  status: ProjectRunStatus;
-  summary: Record<string, unknown> | null;
-  error: string | null;
-  retryCount: number;
-  createdAt: string;
-  updatedAt: string;
-  stages?: ProjectRunStage[];
 }
 
 export type ProjectKnowledgeStatus = "pending" | "collecting" | "active" | "failed";
@@ -345,6 +319,34 @@ export interface ProjectKnowledgeHistory {
     durationMs: number;
   } | null;
   createdAt: string;
+}
+
+export type ProjectFindingStatus = "open" | "confirmed" | "dismissed" | "dismissed_by_user" | "resolved";
+
+export interface ProjectFinding {
+  id: string;
+  projectId: string;
+  projectKnowledgeId: string | null;
+  projectKnowledgeVersion: number | null;
+  repo: string;
+  file: string;
+  lineStart: number | null;
+  lineEnd: number | null;
+  title: string;
+  severity: string;
+  category: string;
+  evidence: string;
+  whyDangerous: string;
+  failureMode: string;
+  recommendedFix: string;
+  whatWouldConfirm: string | null;
+  metadata: Record<string, unknown> | null;
+  status: ProjectFindingStatus;
+  dismissReason: string | null;
+  dismissedBy: string | null;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AppCatPermission {

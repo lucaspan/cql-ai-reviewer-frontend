@@ -18,6 +18,7 @@ interface GraphNode {
   trustZone: string;
   componentType?: string;
   description?: string;
+  repo?: string;
 }
 
 interface GraphEdge {
@@ -49,20 +50,20 @@ interface ThreatMapGraphProps {
 const ZONE_ORDER = ["Public", "Edge", "Private", "Restricted", "External"];
 
 const ZONE_THEME: Record<string, { bg: string; border: string; label: string; nodeBg: string; nodeText: string }> = {
-  Public:     { bg: "#1a0f0f", border: "#7f1d1d", label: "#fca5a5", nodeBg: "#2d1515", nodeText: "#fecaca" },
-  Edge:       { bg: "#1a1708", border: "#78350f", label: "#fcd34d", nodeBg: "#2d2508", nodeText: "#fef3c7" },
-  Private:    { bg: "#0c1527", border: "#1e3a5f", label: "#93c5fd", nodeBg: "#0f1d36", nodeText: "#dbeafe" },
-  Restricted: { bg: "#140f27", border: "#4c1d95", label: "#c4b5fd", nodeBg: "#1c1436", nodeText: "#ede9fe" },
-  External:   { bg: "#141414", border: "#374151", label: "#9ca3af", nodeBg: "#1e1e1e", nodeText: "#e5e7eb" },
+  Public:     { bg: "#fef2f2", border: "#fca5a5", label: "#991b1b", nodeBg: "#ffffff", nodeText: "#1f2937" },
+  Edge:       { bg: "#fffbeb", border: "#fcd34d", label: "#92400e", nodeBg: "#ffffff", nodeText: "#1f2937" },
+  Private:    { bg: "#eff6ff", border: "#93c5fd", label: "#1e3a8a", nodeBg: "#ffffff", nodeText: "#1f2937" },
+  Restricted: { bg: "#f5f3ff", border: "#c4b5fd", label: "#5b21b6", nodeBg: "#ffffff", nodeText: "#1f2937" },
+  External:   { bg: "#f9fafb", border: "#d1d5db", label: "#374151", nodeBg: "#ffffff", nodeText: "#1f2937" },
 };
 
 const STRIDE_COLORS: Record<string, string> = {
-  Spoofing: "#f87171",
-  Tampering: "#fb923c",
-  Repudiation: "#a78bfa",
-  "Information Disclosure": "#60a5fa",
-  "Denial of Service": "#f472b6",
-  "Elevation of Privilege": "#fbbf24",
+  Spoofing: "#dc2626",
+  Tampering: "#ea580c",
+  Repudiation: "#7c3aed",
+  "Information Disclosure": "#2563eb",
+  "Denial of Service": "#db2777",
+  "Elevation of Privilege": "#d97706",
 };
 
 export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
@@ -223,10 +224,10 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
   const showPanel = selectedNodeData || selectedEdgeData;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #1f2937", borderRadius: 10, overflow: "hidden", background: "#0a0a0a", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#ffffff", height: "100%" }}>
       {/* Legend bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "10px 16px", background: "#111827", borderBottom: "1px solid #1f2937", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#e5e7eb", marginRight: 4 }}>Trust Zones:</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "10px 16px", background: "#f9fafb", borderBottom: "1px solid #e5e7eb", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#1f2937", marginRight: 4 }}>Trust Zones:</span>
         {ZONE_ORDER.filter(z => graph.nodes.some(n => n.trustZone === z)).map(zone => {
           const theme = ZONE_THEME[zone];
           return (
@@ -236,8 +237,8 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
             </span>
           );
         })}
-        <span style={{ width: 1, height: 16, background: "#374151" }} />
-        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#818cf8" }}>
+        <span style={{ width: 1, height: 16, background: "#d1d5db" }} />
+        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#4f46e5" }}>
           <svg width="20" height="10"><line x1="0" y1="5" x2="16" y2="5" stroke="#6366f1" strokeWidth="2"/><polygon points="16,2 20,5 16,8" fill="#6366f1"/></svg>
           Data Flow
         </span>
@@ -245,7 +246,7 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
           <svg width="20" height="10"><line x1="0" y1="5" x2="16" y2="5" stroke="#f87171" strokeWidth="2"/><polygon points="16,2 20,5 16,8" fill="#f87171"/></svg>
           Flow with Threats
         </span>
-        <span style={{ width: 1, height: 16, background: "#374151" }} />
+        <span style={{ width: 1, height: 16, background: "#d1d5db" }} />
         <span style={{ fontSize: 11, color: "#6b7280" }}>STRIDE:</span>
         {Object.entries(STRIDE_COLORS).map(([cat, color]) => {
           if (!graph.annotations.some(a => a.category === cat)) return null;
@@ -269,20 +270,20 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
             fitView
             fitViewOptions={{ padding: 0.15 }}
             proOptions={{ hideAttribution: true }}
-            style={{ background: "transparent" }}
+            style={{ background: "#ffffff" }}
           >
-            <Background color="#1f2937" gap={24} size={0.5} />
+            <Background color="#e5e7eb" gap={24} size={0.5} />
             <Controls
               position="top-right"
-              style={{ background: "#1f2937", borderColor: "#374151", borderRadius: 6 }}
+              style={{ background: "#ffffff", borderColor: "#e5e7eb", borderRadius: 6 }}
             />
             <MiniMap
               nodeColor={(node) => {
                 const zone = graph.nodes.find(n => n.id === node.id)?.trustZone ?? "External";
                 return (ZONE_THEME[zone] ?? ZONE_THEME.External).border;
               }}
-              maskColor="rgba(0,0,0,0.7)"
-              style={{ background: "#0a0a0a", borderColor: "#1f2937", borderRadius: 6 }}
+              maskColor="rgba(255,255,255,0.7)"
+              style={{ background: "#ffffff", borderColor: "#e5e7eb", borderRadius: 6 }}
               pannable
               zoomable
             />
@@ -291,16 +292,17 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
 
         {/* Detail panel */}
         {showPanel && (
-          <div style={{ width: 280, background: "#111827", borderLeft: "1px solid #1f2937", padding: 16, overflowY: "auto", fontSize: 12 }}>
+          <div style={{ width: 280, background: "#f9fafb", borderLeft: "1px solid #e5e7eb", padding: 16, overflowY: "auto", fontSize: 12 }}>
             {selectedNodeData && (<>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ fontWeight: 700, fontSize: 14, color: "#f9fafb" }}>{selectedNodeData.label}</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{selectedNodeData.label}</span>
               <span style={{ fontSize: 10, color: "#6b7280" }}>{selectedNodeData.id}</span>
             </div>
 
-            <div style={{ color: "#9ca3af", marginBottom: 8 }}>
-              <div><strong style={{ color: "#d1d5db" }}>Zone:</strong> {selectedNodeData.trustZone}</div>
-              <div><strong style={{ color: "#d1d5db" }}>Type:</strong> {selectedNodeData.componentType ?? selectedNodeData.type}</div>
+            <div style={{ color: "#6b7280", marginBottom: 8 }}>
+              <div><strong style={{ color: "#374151" }}>Zone:</strong> {selectedNodeData.trustZone}</div>
+              <div><strong style={{ color: "#374151" }}>Type:</strong> {selectedNodeData.componentType ?? selectedNodeData.type}</div>
+              {selectedNodeData.repo && <div><strong style={{ color: "#374151" }}>Repo:</strong> {selectedNodeData.repo}</div>}
               {selectedNodeData.description && (
                 <div style={{ marginTop: 6, lineHeight: 1.5 }}>{selectedNodeData.description}</div>
               )}
@@ -308,13 +310,13 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
 
             {selectedFlows.length > 0 && (
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontWeight: 600, color: "#d1d5db", marginBottom: 6 }}>Data Flows</div>
+                <div style={{ fontWeight: 600, color: "#374151", marginBottom: 6 }}>Data Flows</div>
                 {selectedFlows.map(f => {
                   const dir = f.source === selectedNode ? "→" : "←";
                   const other = f.source === selectedNode ? f.target : f.source;
                   return (
-                    <div key={f.id} style={{ padding: "4px 0", borderBottom: "1px solid #1f2937", color: "#9ca3af" }}>
-                      <div><span style={{ color: "#818cf8" }}>{f.id}</span> {dir} {other}</div>
+                    <div key={f.id} style={{ padding: "4px 0", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
+                      <div><span style={{ color: "#4f46e5" }}>{f.id}</span> {dir} {other}</div>
                       {f.label && <div style={{ fontSize: 10 }}>{f.label}</div>}
                       {f.assets?.length ? <div style={{ fontSize: 10, color: "#6b7280" }}>Assets: {f.assets.join(", ")}</div> : null}
                       {f.authControl && <div style={{ fontSize: 10, color: "#6b7280" }}>Auth: {f.authControl}</div>}
@@ -326,9 +328,9 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
 
             {selectedThreats.length > 0 && (
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontWeight: 600, color: "#d1d5db", marginBottom: 6 }}>STRIDE Threats</div>
+                <div style={{ fontWeight: 600, color: "#374151", marginBottom: 6 }}>STRIDE Threats</div>
                 {selectedThreats.map(t => (
-                  <div key={t.id} style={{ padding: "6px 0", borderBottom: "1px solid #1f2937" }}>
+                  <div key={t.id} style={{ padding: "6px 0", borderBottom: "1px solid #e5e7eb" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{
                         fontSize: 9, padding: "1px 5px", borderRadius: 3,
@@ -340,7 +342,7 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
                       </span>
                       <span style={{ fontSize: 10, color: "#6b7280" }}>{t.id}</span>
                     </div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3, lineHeight: 1.4 }}>{t.description}</div>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3, lineHeight: 1.4 }}>{t.description}</div>
                   </div>
                 ))}
               </div>
@@ -351,21 +353,21 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
             {selectedEdgeData && (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: "#f9fafb" }}>{selectedEdgeData.id}</span>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{selectedEdgeData.id}</span>
                   <span style={{ fontSize: 10, color: "#6b7280" }}>{selectedEdgeData.type}</span>
                 </div>
-                <div style={{ color: "#9ca3af", marginBottom: 8 }}>
-                  <div><strong style={{ color: "#d1d5db" }}>From:</strong> {selectedEdgeData.source}</div>
-                  <div><strong style={{ color: "#d1d5db" }}>To:</strong> {selectedEdgeData.target}</div>
-                  {selectedEdgeData.label && <div style={{ marginTop: 4 }}><strong style={{ color: "#d1d5db" }}>Protocol:</strong> {selectedEdgeData.label}</div>}
-                  {selectedEdgeData.assets?.length ? <div style={{ marginTop: 4 }}><strong style={{ color: "#d1d5db" }}>Assets:</strong> {selectedEdgeData.assets.join(", ")}</div> : null}
-                  {selectedEdgeData.authControl && <div style={{ marginTop: 4 }}><strong style={{ color: "#d1d5db" }}>Auth:</strong> {selectedEdgeData.authControl}</div>}
+                <div style={{ color: "#6b7280", marginBottom: 8 }}>
+                  <div><strong style={{ color: "#374151" }}>From:</strong> {selectedEdgeData.source}</div>
+                  <div><strong style={{ color: "#374151" }}>To:</strong> {selectedEdgeData.target}</div>
+                  {selectedEdgeData.label && <div style={{ marginTop: 4 }}><strong style={{ color: "#374151" }}>Protocol:</strong> {selectedEdgeData.label}</div>}
+                  {selectedEdgeData.assets?.length ? <div style={{ marginTop: 4 }}><strong style={{ color: "#374151" }}>Assets:</strong> {selectedEdgeData.assets.join(", ")}</div> : null}
+                  {selectedEdgeData.authControl && <div style={{ marginTop: 4 }}><strong style={{ color: "#374151" }}>Auth:</strong> {selectedEdgeData.authControl}</div>}
                 </div>
                 {selectedEdgeThreats.length > 0 && (
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ fontWeight: 600, color: "#d1d5db", marginBottom: 6 }}>STRIDE Threats</div>
+                    <div style={{ fontWeight: 600, color: "#374151", marginBottom: 6 }}>STRIDE Threats</div>
                     {selectedEdgeThreats.map(t => (
-                      <div key={t.id} style={{ padding: "6px 0", borderBottom: "1px solid #1f2937" }}>
+                      <div key={t.id} style={{ padding: "6px 0", borderBottom: "1px solid #e5e7eb" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{
                             fontSize: 9, padding: "1px 5px", borderRadius: 3,
@@ -377,7 +379,7 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
                           </span>
                           <span style={{ fontSize: 10, color: "#6b7280" }}>{t.id}</span>
                         </div>
-                        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3, lineHeight: 1.4 }}>{t.description}</div>
+                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3, lineHeight: 1.4 }}>{t.description}</div>
                       </div>
                     ))}
                   </div>
@@ -389,7 +391,7 @@ export default function ThreatMapGraph({ graph }: ThreatMapGraphProps) {
       </div>
 
       {/* Stats bar */}
-      <div style={{ display: "flex", gap: 16, padding: "8px 16px", background: "#111827", borderTop: "1px solid #1f2937", fontSize: 11, color: "#6b7280" }}>
+      <div style={{ display: "flex", gap: 16, padding: "8px 16px", background: "#f9fafb", borderTop: "1px solid #e5e7eb", fontSize: 11, color: "#6b7280" }}>
         <span>{graph.nodes.length} components</span>
         <span>{graph.edges.filter(e => e.type === "data_flow").length} data flows</span>
         <span>{graph.edges.filter(e => e.type === "trust_boundary").length} trust boundaries</span>

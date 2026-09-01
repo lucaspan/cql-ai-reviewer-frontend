@@ -6,38 +6,34 @@ import {
   getProject,
   addProjectRepo,
   removeProjectRepo,
-  createProjectRun,
-  processProjectRun,
-  getProjectRuns,
   getProjectKnowledge,
   createRepoProfileEntries,
   createThreatMapEntry,
+  createSecurityScanEntries,
+  startAllSecurityScans,
+  createScanSummaryEntry,
   startKnowledgeCollection,
   deleteProjectKnowledge,
+  getProjectFindings,
+  getProjectFindingStats,
+  dismissProjectFinding,
+  confirmProjectFinding,
+  reopenProjectFinding,
   getKnowledgeActivity,
   getKnowledgeHistory,
 } from "../api/jobApi";
 import type {
   Project,
   ProjectRepo,
-  ProjectRun,
-  ProjectRunStatus,
   ProjectKnowledge,
   ProjectKnowledgeStatus,
   ProjectKnowledgeActivity,
   ProjectKnowledgeHistory,
+  ProjectFinding,
 } from "../types/job.types";
 import ThreatMapGraph from "../components/ThreatMapGraph";
 import "./ProjectsPage.css";
 import "../components/Modal.css";
-
-// Pipeline stages, in execution order. Phase 1 runs the lifecycle; Phase 2/3 fill
-// these stages with real work (THREAT_MAP → map elements, SAST_VERDICT → findings).
-const STAGE_LABELS: Record<string, string> = {
-  THREAT_MAP: "Threat Map",
-  SAST_VERDICT: "Verdicts",
-};
-const stageLabel = (s: string) => STAGE_LABELS[s] ?? s;
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -149,24 +145,26 @@ function ProjectDetail({
   onDeleted: () => void;
 }) {
   const [project, setProject] = useState<Project | null>(null);
-  const [runs, setRuns] = useState<ProjectRun[]>([]);
   const [knowledge, setKnowledge] = useState<ProjectKnowledge[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingRepo, setAddingRepo] = useState(false);
-  const [running, setRunning] = useState(false);
+  const [findings, setFindings] = useState<ProjectFinding[]>([]);
+  const [findingStats, setFindingStats] = useState<Record<string, number>>({});
   const [generatingProfiles, setGeneratingProfiles] = useState(false);
   const [viewingKnowledgeId, setViewingKnowledgeId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [p, r, k] = await Promise.all([
+      const [p, k, f, fs] = await Promise.all([
         getProject(projectId),
-        getProjectRuns(projectId),
         getProjectKnowledge(projectId),
+        getProjectFindings(projectId).catch(() => [] as ProjectFinding[]),
+        getProjectFindingStats(projectId).catch(() => ({} as Record<string, number>)),
       ]);
       setProject(p);
-      setRuns(r);
       setKnowledge(k);
+      setFindings(f);
+      setFindingStats(fs);
     } catch {
       /* silent */
     } finally {
@@ -179,21 +177,6 @@ function ProjectDetail({
   }, [refresh]);
 
   const repos = project?.repos ?? [];
-  const canRun = repos.length > 0 && !running;
-
-  const handleRun = async () => {
-    setRunning(true);
-    try {
-      const run = await createProjectRun(projectId);
-      // Kick off processing immediately (fire-and-forget on the server side).
-      await processProjectRun(run.id).catch(() => {});
-      await refresh();
-    } catch {
-      /* silent */
-    } finally {
-      setRunning(false);
-    }
-  };
 
   const handleRemoveRepo = async (repoId: string) => {
     await removeProjectRepo(projectId, repoId);
@@ -201,7 +184,7 @@ function ProjectDetail({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this project and all its runs? This cannot be undone.")) return;
+    if (!confirm("Delete this project? This cannot be undone.")) return;
     await deleteProject(projectId);
     onDeleted();
   };
@@ -227,14 +210,6 @@ function ProjectDetail({
             title="Refresh project data"
           >
             ↻ Refresh
-          </button>
-          <button
-            className="btn btn--primary btn--sm"
-            onClick={handleRun}
-            disabled={!canRun}
-            title={repos.length === 0 ? "Add at least one repository first" : "Run the threat-modeling pipeline"}
-          >
-            {running ? "Starting…" : "Run Pipeline"}
           </button>
           <button className="btn btn--danger btn--sm" onClick={handleDelete}>
             Delete
@@ -320,7 +295,7 @@ function ProjectDetail({
             Add Threat Map
           </button>
         </div>
-        {knowledge.length === 0 ? (
+        {knowledge.filter(k => k.knowledgeType !== "security_scan" && k.knowledgeType !== "scan_summary").length === 0 ? (
           <div className="pj-inline-empty">
             No knowledge yet. Click <strong>Generate Repo Profiles</strong> to start.
           </div>
@@ -338,7 +313,7 @@ function ProjectDetail({
                 </tr>
               </thead>
               <tbody>
-                {knowledge.map((k) => (
+                {knowledge.filter(k => k.knowledgeType !== "security_scan" && k.knowledgeType !== "scan_summary").map((k) => (
                   <tr key={k.id}>
                     <td><span className="pj-pill">{k.knowledgeType}</span></td>
                     <td className="pj-mono">{k.key}</td>
@@ -396,27 +371,212 @@ function ProjectDetail({
         )}
       </section>
 
-      {/* Runs — each shows the sequential stage timeline */}
+      {/* Security Scans */}
       <section className="pj-section">
         <div className="pj-section__head">
-          <h3 className="pj-section__title">Runs</h3>
-          <button
-            className="btn btn--secondary btn--sm"
-            onClick={refresh}
-            title="Refresh run status"
-          >
-            Refresh
-          </button>
+          <h3 className="pj-section__title">Security Scans</h3>
+          {knowledge.some(k => k.knowledgeType === "threat_map" && k.status === "active") && (
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={async () => {
+                await createSecurityScanEntries(projectId);
+                await refresh();
+              }}
+            >
+              Create Threat Map Scans
+            </button>
+          )}
+          {knowledge.some(k => k.knowledgeType === "security_scan" && (k.status === "pending" || k.status === "failed")) && (
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={async () => {
+                await startAllSecurityScans(projectId);
+                await refresh();
+              }}
+            >
+              Start All
+            </button>
+          )}
         </div>
-        {runs.length === 0 ? (
-          <div className="pj-inline-empty">
-            No runs yet. Click <strong>Run Pipeline</strong> to start.
-          </div>
+        {(() => {
+          const scans = knowledge.filter(k => k.knowledgeType === "security_scan");
+          if (scans.length === 0) {
+            return (
+              <div className="pj-inline-empty">
+                {knowledge.some(k => k.knowledgeType === "threat_map" && k.status === "active")
+                  ? <>No scans yet. Click <strong>Create Threat Map Scans</strong> to start.</>
+                  : "Generate a threat map first to enable security scans."}
+              </div>
+            );
+          }
+          const active = scans.filter(s => s.status === "active").length;
+          const collecting = scans.filter(s => s.status === "collecting").length;
+          const failed = scans.filter(s => s.status === "failed").length;
+          const pending = scans.filter(s => s.status === "pending").length;
+          return (
+            <div>
+              <div className="pj-metrics" style={{ marginBottom: 12 }}>
+                <span>{scans.length} total</span>
+                {active > 0 && <span style={{ color: "#059669" }}>{active} completed</span>}
+                {collecting > 0 && <span style={{ color: "#6366f1" }}>{collecting} running</span>}
+                {pending > 0 && <span>{pending} pending</span>}
+                {failed > 0 && <span style={{ color: "#dc2626" }}>{failed} failed</span>}
+              </div>
+              <div className="pj-table-wrapper">
+                <table className="pj-table">
+                  <thead>
+                    <tr>
+                      <th>Flow</th>
+                      <th>Status</th>
+                      <th>Result</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scans.map((s) => {
+                      const val = s.value as any;
+                      const findings = val.findings?.length ?? 0;
+                      const dismissals = val.dismissals?.length ?? 0;
+                      return (
+                        <tr key={s.id}>
+                          <td className="pj-mono">{s.key}</td>
+                          <td><KnowledgeStatusBadge status={s.status} error={s.error} /></td>
+                          <td>
+                            {s.status === "active" ? (
+                              <span>
+                                {findings > 0 && <span style={{ color: "#dc2626" }}>{findings} finding(s)</span>}
+                                {findings > 0 && dismissals > 0 && ", "}
+                                {dismissals > 0 && <span style={{ color: "#059669" }}>{dismissals} dismissed</span>}
+                                {findings === 0 && dismissals === 0 && <span className="pj-muted">—</span>}
+                              </span>
+                            ) : <span className="pj-muted">—</span>}
+                          </td>
+                          <td className="pj-actions-cell">
+                            {(s.status === "pending" || s.status === "failed") && (
+                              <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, s.id); refresh(); }}>Start</button>
+                            )}
+                            {s.status === "active" && (
+                              <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, s.id); refresh(); }}>Rescan</button>
+                            )}
+                            <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(s.id)}>View</button>
+                            <button className="btn btn--danger btn--sm" onClick={async () => { await deleteProjectKnowledge(projectId, s.id); refresh(); }}>✕</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+      </section>
+
+      {/* Findings */}
+      <section className="pj-section">
+        <div className="pj-section__head">
+          <h3 className="pj-section__title">Findings</h3>
+          {knowledge.some(k => k.knowledgeType === "security_scan" && k.status === "active") && !knowledge.some(k => k.knowledgeType === "scan_summary") && (
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={async () => {
+                const entry = await createScanSummaryEntry(projectId);
+                await startKnowledgeCollection(projectId, entry.id);
+                await refresh();
+              }}
+            >
+              Generate Summary
+            </button>
+          )}
+        </div>
+        {(() => {
+          const summary = knowledge.find(k => k.knowledgeType === "scan_summary");
+          if (!summary) return null;
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", fontSize: 12, color: "#6b7280" }}>
+              <span>Summary:</span>
+              <KnowledgeStatusBadge status={summary.status} error={summary.error} />
+              <span>v{summary.version}</span>
+              <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(summary.id)}>View</button>
+              {summary.status === "active" && (
+                <button className="btn btn--secondary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, summary.id); refresh(); }}>Re-run</button>
+              )}
+            </div>
+          );
+        })()}
+        {findings.length === 0 ? (
+          <div className="pj-inline-empty">No findings yet. Run security scans and generate a summary.</div>
         ) : (
-          <div className="pj-runs">
-            {runs.map((run) => (
-              <RunRow key={run.id} run={run} />
-            ))}
+          <div>
+            <div className="pj-metrics" style={{ marginBottom: 12 }}>
+              <span>{findingStats.total ?? 0} total</span>
+              {(findingStats["severity:critical"] ?? 0) > 0 && <span style={{ color: "#dc2626" }}>{findingStats["severity:critical"]} critical</span>}
+              {(findingStats["severity:high"] ?? 0) > 0 && <span style={{ color: "#ea580c" }}>{findingStats["severity:high"]} high</span>}
+              {(findingStats["severity:medium"] ?? 0) > 0 && <span style={{ color: "#d97706" }}>{findingStats["severity:medium"]} medium</span>}
+              {(findingStats["severity:low"] ?? 0) > 0 && <span>{findingStats["severity:low"]} low</span>}
+              <span style={{ color: "#d1d5db" }}>|</span>
+              {(findingStats["status:open"] ?? 0) > 0 && <span>{findingStats["status:open"]} open</span>}
+              {(findingStats["status:confirmed"] ?? 0) > 0 && <span style={{ color: "#dc2626" }}>{findingStats["status:confirmed"]} confirmed</span>}
+              {(findingStats["status:dismissed"] ?? 0) > 0 && <span style={{ color: "#6b7280" }}>{findingStats["status:dismissed"]} dismissed</span>}
+              {(findingStats["status:dismissed_by_user"] ?? 0) > 0 && <span style={{ color: "#6b7280" }}>{findingStats["status:dismissed_by_user"]} user-dismissed</span>}
+              {(findingStats["status:resolved"] ?? 0) > 0 && <span style={{ color: "#059669" }}>{findingStats["status:resolved"]} resolved</span>}
+            </div>
+            <div className="pj-table-wrapper">
+              <table className="pj-table">
+                <thead>
+                  <tr>
+                    <th>Severity</th>
+                    <th>Title</th>
+                    <th>Repo</th>
+                    <th>File</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {findings.map((f) => (
+                    <tr key={f.id}>
+                      <td>
+                        <span className={`pj-pill ${f.severity === "critical" ? "pj-pill--critical" : f.severity === "high" ? "pj-pill--high" : ""}`}>
+                          {f.severity}
+                        </span>
+                      </td>
+                      <td>
+                        <details>
+                          <summary style={{ cursor: "pointer", fontSize: 13 }}>{f.title}</summary>
+                          <div style={{ padding: "8px 0", fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
+                            <div><strong>Category:</strong> {f.category}</div>
+                            <div><strong>Evidence:</strong> {f.evidence}</div>
+                            <div><strong>Why dangerous:</strong> {f.whyDangerous}</div>
+                            <div><strong>Failure mode:</strong> {f.failureMode}</div>
+                            <div><strong>Fix:</strong> {f.recommendedFix}</div>
+                            {f.whatWouldConfirm && <div><strong>Would confirm:</strong> {f.whatWouldConfirm}</div>}
+                            {f.dismissReason && <div><strong>Dismiss reason:</strong> {f.dismissReason} ({f.dismissedBy})</div>}
+                          </div>
+                        </details>
+                      </td>
+                      <td className="pj-mono">{f.repo}</td>
+                      <td className="pj-mono">{f.file}{f.lineStart ? `:${f.lineStart}` : ""}</td>
+                      <td><span className={`pj-pill ${f.status === "open" ? "" : f.status === "confirmed" ? "pj-pill--critical" : f.status === "resolved" ? "pj-pill--resolved" : "pj-pill--muted"}`}>{f.status}</span></td>
+                      <td className="pj-actions-cell">
+                        {(f.status === "open" || f.status === "dismissed") && (
+                          <button className="btn btn--primary btn--sm" onClick={async () => { await confirmProjectFinding(projectId, f.id); refresh(); }}>Confirm</button>
+                        )}
+                        {(f.status === "open" || f.status === "confirmed") && (
+                          <button className="btn btn--secondary btn--sm" onClick={async () => {
+                            const reason = prompt("Dismiss reason:");
+                            if (reason) { await dismissProjectFinding(projectId, f.id, reason); refresh(); }
+                          }}>Dismiss</button>
+                        )}
+                        {(f.status === "dismissed_by_user" || f.status === "resolved") && (
+                          <button className="btn btn--secondary btn--sm" onClick={async () => { await reopenProjectFinding(projectId, f.id); refresh(); }}>Reopen</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>
@@ -445,54 +605,6 @@ function ProjectDetail({
 }
 
 // ---------------------------------------------------------------------------
-
-function RunRow({ run }: { run: ProjectRun }) {
-  const stages = [...(run.stages ?? [])].sort((a, b) => a.ordinal - b.ordinal);
-  return (
-    <div className="pj-run">
-      <div className="pj-run__head">
-        <StatusBadge status={run.status} />
-        <span className="pj-run__id">{run.id.slice(0, 8)}</span>
-        <span className="pj-run__time">{new Date(run.createdAt).toLocaleString()}</span>
-      </div>
-
-      {/* Sequential stage timeline. Phase 2/3 will let a COMPLETED stage open its
-          map elements / verdicts; for now it shows status only. */}
-      <ol className="pj-timeline">
-        {stages.map((stage, i) => (
-          <li key={stage.id} className="pj-timeline__item">
-            <span className={`pj-dot pj-dot--${stage.status.toLowerCase()}`} aria-hidden />
-            <span className="pj-timeline__label">{stageLabel(stage.stage)}</span>
-            <StatusBadge status={stage.status} small />
-            {i < stages.length - 1 && <span className="pj-timeline__sep" aria-hidden />}
-          </li>
-        ))}
-      </ol>
-
-      {run.error && <div className="pj-run__error">{run.error}</div>}
-    </div>
-  );
-}
-
-function StatusBadge({ status, small }: { status: ProjectRunStatus; small?: boolean }) {
-  const map: Record<ProjectRunStatus, string> = {
-    PENDING: "pj-status--pending",
-    IN_PROGRESS: "pj-status--progress",
-    COMPLETED: "pj-status--done",
-    FAILED: "pj-status--failed",
-  };
-  const label: Record<ProjectRunStatus, string> = {
-    PENDING: "Pending",
-    IN_PROGRESS: "Running",
-    COMPLETED: "Completed",
-    FAILED: "Failed",
-  };
-  return (
-    <span className={`pj-status ${map[status]} ${small ? "pj-status--sm" : ""}`}>
-      {label[status]}
-    </span>
-  );
-}
 
 function KnowledgeStatusBadge({ status, error }: { status: ProjectKnowledgeStatus; error: string | null }) {
   const cls: Record<ProjectKnowledgeStatus, string> = {

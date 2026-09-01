@@ -19,10 +19,10 @@ import type {
   RepoConfig,
   Project,
   ProjectRepo,
-  ProjectRun,
   ProjectKnowledge,
   ProjectKnowledgeActivity,
   ProjectKnowledgeHistory,
+  ProjectFinding,
   AppCatPermission,
   Paginated,
   ListParams,
@@ -793,37 +793,24 @@ export async function removeProjectRepo(
   return res.data;
 }
 
-export async function createProjectRun(
+export async function createSecurityScanEntries(
   projectId: string,
-  stages?: string[],
-): Promise<ProjectRun> {
-  const res = await apiFetch<ProjectRun>(
-    `/project/${encodeURIComponent(projectId)}/run`,
-    { method: "POST", body: JSON.stringify(stages ? { stages } : {}) },
-  );
-  return res.data;
-}
-
-export async function processProjectRun(
-  runId: string,
-): Promise<{ processed: boolean; runId?: string }> {
-  const res = await apiFetch<{ processed: boolean; runId?: string }>(
-    `/project/run/${encodeURIComponent(runId)}/process`,
+): Promise<ProjectKnowledge[]> {
+  const res = await apiFetch<ProjectKnowledge[]>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/security-scans`,
     { method: "POST" },
   );
   return res.data;
 }
 
-export async function getProjectRuns(
+export async function startAllSecurityScans(
   projectId: string,
-  params?: ListParams,
-): Promise<ProjectRun[]> {
-  const query = new URLSearchParams();
-  applyListParams(query, params);
-  const res = await apiFetch<Paginated<ProjectRun>>(
-    `/project/${encodeURIComponent(projectId)}/runs?${query.toString()}`,
+): Promise<{ started: number }> {
+  const res = await apiFetch<{ started: number }>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/security-scans/start-all`,
+    { method: "POST" },
   );
-  return res.data.data;
+  return res.data;
 }
 
 export async function getProjectKnowledge(
@@ -882,6 +869,73 @@ export async function getKnowledgeHistory(
 ): Promise<ProjectKnowledgeHistory[]> {
   const res = await apiFetch<ProjectKnowledgeHistory[]>(
     `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}/history`,
+  );
+  return res.data;
+}
+
+export async function createScanSummaryEntry(
+  projectId: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/scan-summary`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function getProjectFindings(
+  projectId: string,
+  filters?: { status?: string; severity?: string; repo?: string },
+): Promise<ProjectFinding[]> {
+  const query = new URLSearchParams();
+  if (filters?.status) query.set("status", filters.status);
+  if (filters?.severity) query.set("severity", filters.severity);
+  if (filters?.repo) query.set("repo", filters.repo);
+  const res = await apiFetch<ProjectFinding[]>(
+    `/project/${encodeURIComponent(projectId)}/findings?${query.toString()}`,
+  );
+  return res.data;
+}
+
+export async function getProjectFindingStats(
+  projectId: string,
+): Promise<Record<string, number>> {
+  const res = await apiFetch<Record<string, number>>(
+    `/project/${encodeURIComponent(projectId)}/findings/stats`,
+  );
+  return res.data;
+}
+
+export async function dismissProjectFinding(
+  projectId: string,
+  findingId: string,
+  reason: string,
+): Promise<ProjectFinding> {
+  const res = await apiFetch<ProjectFinding>(
+    `/project/${encodeURIComponent(projectId)}/findings/${encodeURIComponent(findingId)}/dismiss`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+  return res.data;
+}
+
+export async function confirmProjectFinding(
+  projectId: string,
+  findingId: string,
+): Promise<ProjectFinding> {
+  const res = await apiFetch<ProjectFinding>(
+    `/project/${encodeURIComponent(projectId)}/findings/${encodeURIComponent(findingId)}/confirm`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function reopenProjectFinding(
+  projectId: string,
+  findingId: string,
+): Promise<ProjectFinding> {
+  const res = await apiFetch<ProjectFinding>(
+    `/project/${encodeURIComponent(projectId)}/findings/${encodeURIComponent(findingId)}/reopen`,
+    { method: "POST" },
   );
   return res.data;
 }
