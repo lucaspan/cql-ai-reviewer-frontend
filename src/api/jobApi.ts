@@ -940,6 +940,17 @@ export async function reopenProjectFinding(
   return res.data;
 }
 
+export async function resetProjectKnowledge(
+  projectId: string,
+  knowledgeId: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}/reset`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function deleteProjectKnowledge(
   projectId: string,
   knowledgeId: string,

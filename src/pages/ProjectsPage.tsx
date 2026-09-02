@@ -13,6 +13,7 @@ import {
   startAllSecurityScans,
   createScanSummaryEntry,
   startKnowledgeCollection,
+  resetProjectKnowledge,
   deleteProjectKnowledge,
   getProjectFindings,
   getProjectFindingStats,
@@ -345,6 +346,18 @@ function ProjectDetail({
                           Regenerate
                         </button>
                       )}
+                      {k.status === "collecting" && (
+                        <button
+                          className="btn btn--danger btn--sm"
+                          onClick={async () => {
+                            await resetProjectKnowledge(projectId, k.id);
+                            refresh();
+                          }}
+                          aria-label={`Reset ${k.key}`}
+                        >
+                          Reset
+                        </button>
+                      )}
                       <button
                         className="btn btn--secondary btn--sm"
                         onClick={() => setViewingKnowledgeId(k.id)}
@@ -458,6 +471,9 @@ function ProjectDetail({
                             {s.status === "active" && (
                               <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, s.id); refresh(); }}>Rescan</button>
                             )}
+                            {s.status === "collecting" && (
+                              <button className="btn btn--danger btn--sm" onClick={async () => { await resetProjectKnowledge(projectId, s.id); refresh(); }}>Reset</button>
+                            )}
                             <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(s.id)}>View</button>
                             <button className="btn btn--danger btn--sm" onClick={async () => { await deleteProjectKnowledge(projectId, s.id); refresh(); }}>✕</button>
                           </td>
@@ -486,6 +502,25 @@ function ProjectDetail({
               }}
             >
               Generate Summary
+            </button>
+          )}
+          {findings.length > 0 && (
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={async () => {
+                const res = await fetch(`/api/project/${encodeURIComponent(projectId)}/findings/export`, {
+                  headers: { "x-internal-api-key": (import.meta as any).env.VITE_API_KEY ?? "" }
+                });
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = res.headers.get("content-disposition")?.match(/filename="(.+)"/)?.[1] ?? "findings.xlsx";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export Excel
             </button>
           )}
         </div>
