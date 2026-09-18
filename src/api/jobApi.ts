@@ -842,6 +842,38 @@ export async function createThreatMapEntry(
   return res.data;
 }
 
+export async function createEndpointInventoryEntries(
+  projectId: string,
+): Promise<ProjectKnowledge[]> {
+  const res = await apiFetch<ProjectKnowledge[]>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/endpoint-inventory`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function createServiceMappingEntry(
+  projectId: string,
+  timeframe?: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/service-mapping`,
+    { method: "POST", body: JSON.stringify({ timeframe }) },
+  );
+  return res.data;
+}
+
+export async function createRuntimeTopologyEntry(
+  projectId: string,
+  timeframe?: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/runtime-topology`,
+    { method: "POST", body: JSON.stringify({ timeframe }) },
+  );
+  return res.data;
+}
+
 export async function startKnowledgeCollection(
   projectId: string,
   knowledgeId: string,

@@ -8,9 +8,11 @@ import {
   removeProjectRepo,
   getProjectKnowledge,
   createRepoProfileEntries,
+  createEndpointInventoryEntries,
+  createServiceMappingEntry,
+  createRuntimeTopologyEntry,
   createThreatMapEntry,
   createSecurityScanEntries,
-  startAllSecurityScans,
   createScanSummaryEntry,
   startKnowledgeCollection,
   resetProjectKnowledge,
@@ -33,6 +35,7 @@ import type {
   ProjectFinding,
 } from "../types/job.types";
 import ThreatMapGraph from "../components/ThreatMapGraph";
+import RuntimeTopologyGraph from "../components/RuntimeTopologyGraph";
 import "./ProjectsPage.css";
 import "../components/Modal.css";
 
@@ -83,7 +86,10 @@ export default function ProjectsPage() {
         <span className="pj-count">
           {projects.length} project{projects.length !== 1 ? "s" : ""}
         </span>
-        <button className="btn btn--primary btn--sm" onClick={() => setCreating(true)}>
+        <button
+          className="btn btn--primary btn--sm"
+          onClick={() => setCreating(true)}
+        >
           + New Project
         </button>
       </div>
@@ -92,17 +98,24 @@ export default function ProjectsPage() {
         <div className="pj-empty-card">
           <h3>No projects yet</h3>
           <p>
-            Group related repositories into a system, then run the threat-modeling
-            pipeline across them.
+            Group related repositories into a system, then run the
+            threat-modeling pipeline across them.
           </p>
-          <button className="btn btn--primary btn--sm" onClick={() => setCreating(true)}>
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={() => setCreating(true)}
+          >
             + New Project
           </button>
         </div>
       ) : (
         <div className="pj-grid">
           {projects.map((p) => (
-            <button key={p.id} className="pj-card" onClick={() => setSelectedId(p.id)}>
+            <button
+              key={p.id}
+              className="pj-card"
+              onClick={() => setSelectedId(p.id)}
+            >
               <div className="pj-card__head">
                 <span className="pj-card__name">{p.name}</span>
                 <span
@@ -111,9 +124,12 @@ export default function ProjectsPage() {
                   {p.enabled ? "Enabled" : "Disabled"}
                 </span>
               </div>
-              {p.description && <p className="pj-card__desc">{p.description}</p>}
+              {p.description && (
+                <p className="pj-card__desc">{p.description}</p>
+              )}
               <div className="pj-card__meta">
-                {(p.repos?.length ?? 0)} repo{(p.repos?.length ?? 0) !== 1 ? "s" : ""}
+                {p.repos?.length ?? 0} repo
+                {(p.repos?.length ?? 0) !== 1 ? "s" : ""}
               </div>
             </button>
           ))}
@@ -136,6 +152,12 @@ export default function ProjectsPage() {
 
 // ---------------------------------------------------------------------------
 
+const MAX_CONCURRENT_SCANS = 3;
+const SCAN_POLL_INTERVAL_MS = 3000;
+
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 function ProjectDetail({
   projectId,
   onBack,
@@ -152,7 +174,10 @@ function ProjectDetail({
   const [findings, setFindings] = useState<ProjectFinding[]>([]);
   const [findingStats, setFindingStats] = useState<Record<string, number>>({});
   const [generatingProfiles, setGeneratingProfiles] = useState(false);
-  const [viewingKnowledgeId, setViewingKnowledgeId] = useState<string | null>(null);
+  const [viewingKnowledgeId, setViewingKnowledgeId] = useState<string | null>(
+    null,
+  );
+  const [startingAllScans, setStartingAllScans] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -160,7 +185,9 @@ function ProjectDetail({
         getProject(projectId),
         getProjectKnowledge(projectId),
         getProjectFindings(projectId).catch(() => [] as ProjectFinding[]),
-        getProjectFindingStats(projectId).catch(() => ({} as Record<string, number>)),
+        getProjectFindingStats(projectId).catch(
+          () => ({}) as Record<string, number>,
+        ),
       ]);
       setProject(p);
       setKnowledge(k);
@@ -176,6 +203,52 @@ function ProjectDetail({
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Starts all pending/failed security scans, but keeps at most MAX_CONCURRENT_SCANS
+  // running at once — polling for status changes and launching the next as each finishes.
+  const handleStartAllScans = useCallback(async () => {
+    setStartingAllScans(true);
+    try {
+      let current = await getProjectKnowledge(projectId);
+      const scans = current.filter((k) => k.knowledgeType === "security_scan");
+      const queue = scans
+        .filter((s) => s.status === "pending" || s.status === "failed")
+        .map((s) => s.id);
+      const inFlight = new Set(
+        scans.filter((s) => s.status === "collecting").map((s) => s.id),
+      );
+
+      while (queue.length > 0 || inFlight.size > 0) {
+        while (inFlight.size < MAX_CONCURRENT_SCANS && queue.length > 0) {
+          const id = queue.shift()!;
+          inFlight.add(id);
+          try {
+            await startKnowledgeCollection(projectId, id);
+          } catch {
+            inFlight.delete(id);
+          }
+        }
+
+        await refresh();
+        await delay(SCAN_POLL_INTERVAL_MS);
+
+        current = await getProjectKnowledge(projectId);
+        for (const id of [...inFlight]) {
+          const entry = current.find((k) => k.id === id);
+          if (
+            !entry ||
+            entry.status === "active" ||
+            entry.status === "failed"
+          ) {
+            inFlight.delete(id);
+          }
+        }
+      }
+    } finally {
+      setStartingAllScans(false);
+      await refresh();
+    }
+  }, [projectId, refresh]);
 
   const repos = project?.repos ?? [];
 
@@ -202,7 +275,9 @@ function ProjectDetail({
       <div className="pj-detail-head">
         <div>
           <h2 className="pj-detail-title">{project.name}</h2>
-          {project.description && <p className="pj-detail-desc">{project.description}</p>}
+          {project.description && (
+            <p className="pj-detail-desc">{project.description}</p>
+          )}
         </div>
         <div className="pj-detail-actions">
           <button
@@ -222,12 +297,16 @@ function ProjectDetail({
       <section className="pj-section">
         <div className="pj-section__head">
           <h3 className="pj-section__title">Repositories</h3>
-          <button className="btn btn--secondary btn--sm" onClick={() => setAddingRepo(true)}>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={() => setAddingRepo(true)}
+          >
             + Add Repo
           </button>
         </div>
         <p className="pj-hint">
-          All repositories are analyzed together as one system — peers, not a hierarchy.
+          All repositories are analyzed together as one system — peers, not a
+          hierarchy.
         </p>
         {repos.length === 0 ? (
           <div className="pj-inline-empty">No repositories yet.</div>
@@ -265,7 +344,6 @@ function ProjectDetail({
         )}
       </section>
 
-
       {/* Knowledge Base */}
       <section className="pj-section">
         <div className="pj-section__head">
@@ -288,6 +366,38 @@ function ProjectDetail({
           <button
             className="btn btn--secondary btn--sm"
             onClick={async () => {
+              await createEndpointInventoryEntries(projectId);
+              await refresh();
+            }}
+            disabled={repos.length === 0}
+          >
+            Add Endpoint Inventory
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={async () => {
+              await createServiceMappingEntry(projectId);
+              await refresh();
+            }}
+            disabled={repos.length === 0}
+            title="Resolve repos to Dynatrace services (run before runtime topology)"
+          >
+            Add Service Mapping
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={async () => {
+              await createRuntimeTopologyEntry(projectId);
+              await refresh();
+            }}
+            disabled={repos.length === 0}
+            title="Build the observed topology (requires an active service mapping)"
+          >
+            Add Runtime Topology
+          </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={async () => {
               await createThreatMapEntry(projectId);
               await refresh();
             }}
@@ -296,9 +406,14 @@ function ProjectDetail({
             Add Threat Map
           </button>
         </div>
-        {knowledge.filter(k => k.knowledgeType !== "security_scan" && k.knowledgeType !== "scan_summary").length === 0 ? (
+        {knowledge.filter(
+          (k) =>
+            k.knowledgeType !== "security_scan" &&
+            k.knowledgeType !== "scan_summary",
+        ).length === 0 ? (
           <div className="pj-inline-empty">
-            No knowledge yet. Click <strong>Generate Repo Profiles</strong> to start.
+            No knowledge yet. Click <strong>Generate Repo Profiles</strong> to
+            start.
           </div>
         ) : (
           <div className="pj-table-wrapper">
@@ -314,70 +429,83 @@ function ProjectDetail({
                 </tr>
               </thead>
               <tbody>
-                {knowledge.filter(k => k.knowledgeType !== "security_scan" && k.knowledgeType !== "scan_summary").map((k) => (
-                  <tr key={k.id}>
-                    <td><span className="pj-pill">{k.knowledgeType}</span></td>
-                    <td className="pj-mono">{k.key}</td>
-                    <td>{k.source}</td>
-                    <td><KnowledgeStatusBadge status={k.status} error={k.error} /></td>
-                    <td>{k.version}</td>
-                    <td className="pj-actions-cell">
-                      {(k.status === "pending" || k.status === "failed") && (
+                {knowledge
+                  .filter(
+                    (k) =>
+                      k.knowledgeType !== "security_scan" &&
+                      k.knowledgeType !== "scan_summary",
+                  )
+                  .map((k) => (
+                    <tr key={k.id}>
+                      <td>
+                        <span className="pj-pill">{k.knowledgeType}</span>
+                      </td>
+                      <td className="pj-mono">{k.key}</td>
+                      <td>{k.source}</td>
+                      <td>
+                        <KnowledgeStatusBadge
+                          status={k.status}
+                          error={k.error}
+                        />
+                      </td>
+                      <td>{k.version}</td>
+                      <td className="pj-actions-cell">
+                        {(k.status === "pending" || k.status === "failed") && (
+                          <button
+                            className="btn btn--primary btn--sm"
+                            onClick={async () => {
+                              await startKnowledgeCollection(projectId, k.id);
+                              refresh();
+                            }}
+                            aria-label={`Start ${k.key}`}
+                          >
+                            Start
+                          </button>
+                        )}
+                        {k.status === "active" && (
+                          <button
+                            className="btn btn--primary btn--sm"
+                            onClick={async () => {
+                              await startKnowledgeCollection(projectId, k.id);
+                              refresh();
+                            }}
+                            aria-label={`Regenerate ${k.key}`}
+                          >
+                            Regenerate
+                          </button>
+                        )}
+                        {k.status === "collecting" && (
+                          <button
+                            className="btn btn--danger btn--sm"
+                            onClick={async () => {
+                              await resetProjectKnowledge(projectId, k.id);
+                              refresh();
+                            }}
+                            aria-label={`Reset ${k.key}`}
+                          >
+                            Reset
+                          </button>
+                        )}
                         <button
-                          className="btn btn--primary btn--sm"
-                          onClick={async () => {
-                            await startKnowledgeCollection(projectId, k.id);
-                            refresh();
-                          }}
-                          aria-label={`Start ${k.key}`}
+                          className="btn btn--secondary btn--sm"
+                          onClick={() => setViewingKnowledgeId(k.id)}
+                          aria-label={`View ${k.key}`}
                         >
-                          Start
+                          View
                         </button>
-                      )}
-                      {k.status === "active" && (
-                        <button
-                          className="btn btn--primary btn--sm"
-                          onClick={async () => {
-                            await startKnowledgeCollection(projectId, k.id);
-                            refresh();
-                          }}
-                          aria-label={`Regenerate ${k.key}`}
-                        >
-                          Regenerate
-                        </button>
-                      )}
-                      {k.status === "collecting" && (
                         <button
                           className="btn btn--danger btn--sm"
                           onClick={async () => {
-                            await resetProjectKnowledge(projectId, k.id);
+                            await deleteProjectKnowledge(projectId, k.id);
                             refresh();
                           }}
-                          aria-label={`Reset ${k.key}`}
+                          aria-label={`Delete ${k.key}`}
                         >
-                          Reset
+                          ✕
                         </button>
-                      )}
-                      <button
-                        className="btn btn--secondary btn--sm"
-                        onClick={() => setViewingKnowledgeId(k.id)}
-                        aria-label={`View ${k.key}`}
-                      >
-                        View
-                      </button>
-                      <button
-                        className="btn btn--danger btn--sm"
-                        onClick={async () => {
-                          await deleteProjectKnowledge(projectId, k.id);
-                          refresh();
-                        }}
-                        aria-label={`Delete ${k.key}`}
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -388,7 +516,9 @@ function ProjectDetail({
       <section className="pj-section">
         <div className="pj-section__head">
           <h3 className="pj-section__title">Security Scans</h3>
-          {knowledge.some(k => k.knowledgeType === "threat_map" && k.status === "active") && (
+          {knowledge.some(
+            (k) => k.knowledgeType === "threat_map" && k.status === "active",
+          ) && (
             <button
               className="btn btn--primary btn--sm"
               onClick={async () => {
@@ -399,41 +529,61 @@ function ProjectDetail({
               Create Threat Map Scans
             </button>
           )}
-          {knowledge.some(k => k.knowledgeType === "security_scan" && (k.status === "pending" || k.status === "failed")) && (
+          {knowledge.some(
+            (k) =>
+              k.knowledgeType === "security_scan" &&
+              (k.status === "pending" || k.status === "failed"),
+          ) && (
             <button
               className="btn btn--secondary btn--sm"
-              onClick={async () => {
-                await startAllSecurityScans(projectId);
-                await refresh();
-              }}
+              onClick={handleStartAllScans}
+              disabled={startingAllScans}
             >
-              Start All
+              {startingAllScans ? "Running…" : "Start All"}
             </button>
           )}
         </div>
         {(() => {
-          const scans = knowledge.filter(k => k.knowledgeType === "security_scan");
+          const scans = knowledge.filter(
+            (k) => k.knowledgeType === "security_scan",
+          );
           if (scans.length === 0) {
             return (
               <div className="pj-inline-empty">
-                {knowledge.some(k => k.knowledgeType === "threat_map" && k.status === "active")
-                  ? <>No scans yet. Click <strong>Create Threat Map Scans</strong> to start.</>
-                  : "Generate a threat map first to enable security scans."}
+                {knowledge.some(
+                  (k) =>
+                    k.knowledgeType === "threat_map" && k.status === "active",
+                ) ? (
+                  <>
+                    No scans yet. Click <strong>Create Threat Map Scans</strong>{" "}
+                    to start.
+                  </>
+                ) : (
+                  "Generate a threat map first to enable security scans."
+                )}
               </div>
             );
           }
-          const active = scans.filter(s => s.status === "active").length;
-          const collecting = scans.filter(s => s.status === "collecting").length;
-          const failed = scans.filter(s => s.status === "failed").length;
-          const pending = scans.filter(s => s.status === "pending").length;
+          const active = scans.filter((s) => s.status === "active").length;
+          const collecting = scans.filter(
+            (s) => s.status === "collecting",
+          ).length;
+          const failed = scans.filter((s) => s.status === "failed").length;
+          const pending = scans.filter((s) => s.status === "pending").length;
           return (
             <div>
               <div className="pj-metrics" style={{ marginBottom: 12 }}>
                 <span>{scans.length} total</span>
-                {active > 0 && <span style={{ color: "#059669" }}>{active} completed</span>}
-                {collecting > 0 && <span style={{ color: "#6366f1" }}>{collecting} running</span>}
+                {active > 0 && (
+                  <span style={{ color: "#059669" }}>{active} completed</span>
+                )}
+                {collecting > 0 && (
+                  <span style={{ color: "#6366f1" }}>{collecting} running</span>
+                )}
                 {pending > 0 && <span>{pending} pending</span>}
-                {failed > 0 && <span style={{ color: "#dc2626" }}>{failed} failed</span>}
+                {failed > 0 && (
+                  <span style={{ color: "#dc2626" }}>{failed} failed</span>
+                )}
               </div>
               <div className="pj-table-wrapper">
                 <table className="pj-table">
@@ -453,29 +603,90 @@ function ProjectDetail({
                       return (
                         <tr key={s.id}>
                           <td className="pj-mono">{s.key}</td>
-                          <td><KnowledgeStatusBadge status={s.status} error={s.error} /></td>
+                          <td>
+                            <KnowledgeStatusBadge
+                              status={s.status}
+                              error={s.error}
+                            />
+                          </td>
                           <td>
                             {s.status === "active" ? (
                               <span>
-                                {findings > 0 && <span style={{ color: "#dc2626" }}>{findings} finding(s)</span>}
+                                {findings > 0 && (
+                                  <span style={{ color: "#dc2626" }}>
+                                    {findings} finding(s)
+                                  </span>
+                                )}
                                 {findings > 0 && dismissals > 0 && ", "}
-                                {dismissals > 0 && <span style={{ color: "#059669" }}>{dismissals} dismissed</span>}
-                                {findings === 0 && dismissals === 0 && <span className="pj-muted">—</span>}
+                                {dismissals > 0 && (
+                                  <span style={{ color: "#059669" }}>
+                                    {dismissals} dismissed
+                                  </span>
+                                )}
+                                {findings === 0 && dismissals === 0 && (
+                                  <span className="pj-muted">—</span>
+                                )}
                               </span>
-                            ) : <span className="pj-muted">—</span>}
+                            ) : (
+                              <span className="pj-muted">—</span>
+                            )}
                           </td>
                           <td className="pj-actions-cell">
-                            {(s.status === "pending" || s.status === "failed") && (
-                              <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, s.id); refresh(); }}>Start</button>
+                            {(s.status === "pending" ||
+                              s.status === "failed") && (
+                              <button
+                                className="btn btn--primary btn--sm"
+                                onClick={async () => {
+                                  await startKnowledgeCollection(
+                                    projectId,
+                                    s.id,
+                                  );
+                                  refresh();
+                                }}
+                              >
+                                Start
+                              </button>
                             )}
                             {s.status === "active" && (
-                              <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, s.id); refresh(); }}>Rescan</button>
+                              <button
+                                className="btn btn--primary btn--sm"
+                                onClick={async () => {
+                                  await startKnowledgeCollection(
+                                    projectId,
+                                    s.id,
+                                  );
+                                  refresh();
+                                }}
+                              >
+                                Rescan
+                              </button>
                             )}
                             {s.status === "collecting" && (
-                              <button className="btn btn--danger btn--sm" onClick={async () => { await resetProjectKnowledge(projectId, s.id); refresh(); }}>Reset</button>
+                              <button
+                                className="btn btn--danger btn--sm"
+                                onClick={async () => {
+                                  await resetProjectKnowledge(projectId, s.id);
+                                  refresh();
+                                }}
+                              >
+                                Reset
+                              </button>
                             )}
-                            <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(s.id)}>View</button>
-                            <button className="btn btn--danger btn--sm" onClick={async () => { await deleteProjectKnowledge(projectId, s.id); refresh(); }}>✕</button>
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              onClick={() => setViewingKnowledgeId(s.id)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="btn btn--danger btn--sm"
+                              onClick={async () => {
+                                await deleteProjectKnowledge(projectId, s.id);
+                                refresh();
+                              }}
+                            >
+                              ✕
+                            </button>
                           </td>
                         </tr>
                       );
@@ -492,30 +703,42 @@ function ProjectDetail({
       <section className="pj-section">
         <div className="pj-section__head">
           <h3 className="pj-section__title">Findings</h3>
-          {knowledge.some(k => k.knowledgeType === "security_scan" && k.status === "active") && !knowledge.some(k => k.knowledgeType === "scan_summary") && (
-            <button
-              className="btn btn--primary btn--sm"
-              onClick={async () => {
-                const entry = await createScanSummaryEntry(projectId);
-                await startKnowledgeCollection(projectId, entry.id);
-                await refresh();
-              }}
-            >
-              Generate Summary
-            </button>
-          )}
+          {knowledge.some(
+            (k) => k.knowledgeType === "security_scan" && k.status === "active",
+          ) &&
+            !knowledge.some((k) => k.knowledgeType === "scan_summary") && (
+              <button
+                className="btn btn--primary btn--sm"
+                onClick={async () => {
+                  const entry = await createScanSummaryEntry(projectId);
+                  await startKnowledgeCollection(projectId, entry.id);
+                  await refresh();
+                }}
+              >
+                Generate Summary
+              </button>
+            )}
           {findings.length > 0 && (
             <button
               className="btn btn--secondary btn--sm"
               onClick={async () => {
-                const res = await fetch(`/api/project/${encodeURIComponent(projectId)}/findings/export`, {
-                  headers: { "x-internal-api-key": (import.meta as any).env.VITE_API_KEY ?? "" }
-                });
+                const res = await fetch(
+                  `/api/project/${encodeURIComponent(projectId)}/findings/export`,
+                  {
+                    headers: {
+                      "x-internal-api-key":
+                        (import.meta as any).env.VITE_API_KEY ?? "",
+                    },
+                  },
+                );
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = res.headers.get("content-disposition")?.match(/filename="(.+)"/)?.[1] ?? "findings.xlsx";
+                a.download =
+                  res.headers
+                    .get("content-disposition")
+                    ?.match(/filename="(.+)"/)?.[1] ?? "findings.xlsx";
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -525,36 +748,97 @@ function ProjectDetail({
           )}
         </div>
         {(() => {
-          const summary = knowledge.find(k => k.knowledgeType === "scan_summary");
+          const summary = knowledge.find(
+            (k) => k.knowledgeType === "scan_summary",
+          );
           if (!summary) return null;
           return (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", fontSize: 12, color: "#6b7280" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 0",
+                fontSize: 12,
+                color: "#6b7280",
+              }}
+            >
               <span>Summary:</span>
-              <KnowledgeStatusBadge status={summary.status} error={summary.error} />
+              <KnowledgeStatusBadge
+                status={summary.status}
+                error={summary.error}
+              />
               <span>v{summary.version}</span>
-              <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(summary.id)}>View</button>
+              <button
+                className="btn btn--secondary btn--sm"
+                onClick={() => setViewingKnowledgeId(summary.id)}
+              >
+                View
+              </button>
               {summary.status === "active" && (
-                <button className="btn btn--secondary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, summary.id); refresh(); }}>Re-run</button>
+                <button
+                  className="btn btn--secondary btn--sm"
+                  onClick={async () => {
+                    await startKnowledgeCollection(projectId, summary.id);
+                    refresh();
+                  }}
+                >
+                  Re-run
+                </button>
               )}
             </div>
           );
         })()}
         {findings.length === 0 ? (
-          <div className="pj-inline-empty">No findings yet. Run security scans and generate a summary.</div>
+          <div className="pj-inline-empty">
+            No findings yet. Run security scans and generate a summary.
+          </div>
         ) : (
           <div>
             <div className="pj-metrics" style={{ marginBottom: 12 }}>
               <span>{findingStats.total ?? 0} total</span>
-              {(findingStats["severity:critical"] ?? 0) > 0 && <span style={{ color: "#dc2626" }}>{findingStats["severity:critical"]} critical</span>}
-              {(findingStats["severity:high"] ?? 0) > 0 && <span style={{ color: "#ea580c" }}>{findingStats["severity:high"]} high</span>}
-              {(findingStats["severity:medium"] ?? 0) > 0 && <span style={{ color: "#d97706" }}>{findingStats["severity:medium"]} medium</span>}
-              {(findingStats["severity:low"] ?? 0) > 0 && <span>{findingStats["severity:low"]} low</span>}
+              {(findingStats["severity:critical"] ?? 0) > 0 && (
+                <span style={{ color: "#dc2626" }}>
+                  {findingStats["severity:critical"]} critical
+                </span>
+              )}
+              {(findingStats["severity:high"] ?? 0) > 0 && (
+                <span style={{ color: "#ea580c" }}>
+                  {findingStats["severity:high"]} high
+                </span>
+              )}
+              {(findingStats["severity:medium"] ?? 0) > 0 && (
+                <span style={{ color: "#d97706" }}>
+                  {findingStats["severity:medium"]} medium
+                </span>
+              )}
+              {(findingStats["severity:low"] ?? 0) > 0 && (
+                <span>{findingStats["severity:low"]} low</span>
+              )}
               <span style={{ color: "#d1d5db" }}>|</span>
-              {(findingStats["status:open"] ?? 0) > 0 && <span>{findingStats["status:open"]} open</span>}
-              {(findingStats["status:confirmed"] ?? 0) > 0 && <span style={{ color: "#dc2626" }}>{findingStats["status:confirmed"]} confirmed</span>}
-              {(findingStats["status:dismissed"] ?? 0) > 0 && <span style={{ color: "#6b7280" }}>{findingStats["status:dismissed"]} dismissed</span>}
-              {(findingStats["status:dismissed_by_user"] ?? 0) > 0 && <span style={{ color: "#6b7280" }}>{findingStats["status:dismissed_by_user"]} user-dismissed</span>}
-              {(findingStats["status:resolved"] ?? 0) > 0 && <span style={{ color: "#059669" }}>{findingStats["status:resolved"]} resolved</span>}
+              {(findingStats["status:open"] ?? 0) > 0 && (
+                <span>{findingStats["status:open"]} open</span>
+              )}
+              {(findingStats["status:confirmed"] ?? 0) > 0 && (
+                <span style={{ color: "#dc2626" }}>
+                  {findingStats["status:confirmed"]} confirmed
+                </span>
+              )}
+              {(findingStats["status:dismissed"] ?? 0) > 0 && (
+                <span style={{ color: "#6b7280" }}>
+                  {findingStats["status:dismissed"]} dismissed
+                </span>
+              )}
+              {(findingStats["status:dismissed_by_user"] ?? 0) > 0 && (
+                <span style={{ color: "#6b7280" }}>
+                  {findingStats["status:dismissed_by_user"]} user-dismissed
+                </span>
+              )}
+              {(findingStats["status:resolved"] ?? 0) > 0 && (
+                <span style={{ color: "#059669" }}>
+                  {findingStats["status:resolved"]} resolved
+                </span>
+              )}
             </div>
             <div className="pj-table-wrapper">
               <table className="pj-table">
@@ -572,39 +856,108 @@ function ProjectDetail({
                   {findings.map((f) => (
                     <tr key={f.id}>
                       <td>
-                        <span className={`pj-pill ${f.severity === "critical" ? "pj-pill--critical" : f.severity === "high" ? "pj-pill--high" : ""}`}>
+                        <span
+                          className={`pj-pill ${f.severity === "critical" ? "pj-pill--critical" : f.severity === "high" ? "pj-pill--high" : ""}`}
+                        >
                           {f.severity}
                         </span>
                       </td>
                       <td>
                         <details>
-                          <summary style={{ cursor: "pointer", fontSize: 13 }}>{f.title}</summary>
-                          <div style={{ padding: "8px 0", fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
-                            <div><strong>Category:</strong> {f.category}</div>
-                            <div><strong>Evidence:</strong> {f.evidence}</div>
-                            <div><strong>Why dangerous:</strong> {f.whyDangerous}</div>
-                            <div><strong>Failure mode:</strong> {f.failureMode}</div>
-                            <div><strong>Fix:</strong> {f.recommendedFix}</div>
-                            {f.whatWouldConfirm && <div><strong>Would confirm:</strong> {f.whatWouldConfirm}</div>}
-                            {f.dismissReason && <div><strong>Dismiss reason:</strong> {f.dismissReason} ({f.dismissedBy})</div>}
+                          <summary style={{ cursor: "pointer", fontSize: 13 }}>
+                            {f.title}
+                          </summary>
+                          <div
+                            style={{
+                              padding: "8px 0",
+                              fontSize: 12,
+                              color: "#374151",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            <div>
+                              <strong>Category:</strong> {f.category}
+                            </div>
+                            <div>
+                              <strong>Evidence:</strong> {f.evidence}
+                            </div>
+                            <div>
+                              <strong>Why dangerous:</strong> {f.whyDangerous}
+                            </div>
+                            <div>
+                              <strong>Failure mode:</strong> {f.failureMode}
+                            </div>
+                            <div>
+                              <strong>Fix:</strong> {f.recommendedFix}
+                            </div>
+                            {f.whatWouldConfirm && (
+                              <div>
+                                <strong>Would confirm:</strong>{" "}
+                                {f.whatWouldConfirm}
+                              </div>
+                            )}
+                            {f.dismissReason && (
+                              <div>
+                                <strong>Dismiss reason:</strong>{" "}
+                                {f.dismissReason} ({f.dismissedBy})
+                              </div>
+                            )}
                           </div>
                         </details>
                       </td>
                       <td className="pj-mono">{f.repo}</td>
-                      <td className="pj-mono">{f.file}{f.lineStart ? `:${f.lineStart}` : ""}</td>
-                      <td><span className={`pj-pill ${f.status === "open" ? "" : f.status === "confirmed" ? "pj-pill--critical" : f.status === "resolved" ? "pj-pill--resolved" : "pj-pill--muted"}`}>{f.status}</span></td>
+                      <td className="pj-mono">
+                        {f.file}
+                        {f.lineStart ? `:${f.lineStart}` : ""}
+                      </td>
+                      <td>
+                        <span
+                          className={`pj-pill ${f.status === "open" ? "" : f.status === "confirmed" ? "pj-pill--critical" : f.status === "resolved" ? "pj-pill--resolved" : "pj-pill--muted"}`}
+                        >
+                          {f.status}
+                        </span>
+                      </td>
                       <td className="pj-actions-cell">
                         {(f.status === "open" || f.status === "dismissed") && (
-                          <button className="btn btn--primary btn--sm" onClick={async () => { await confirmProjectFinding(projectId, f.id); refresh(); }}>Confirm</button>
+                          <button
+                            className="btn btn--primary btn--sm"
+                            onClick={async () => {
+                              await confirmProjectFinding(projectId, f.id);
+                              refresh();
+                            }}
+                          >
+                            Confirm
+                          </button>
                         )}
                         {(f.status === "open" || f.status === "confirmed") && (
-                          <button className="btn btn--secondary btn--sm" onClick={async () => {
-                            const reason = prompt("Dismiss reason:");
-                            if (reason) { await dismissProjectFinding(projectId, f.id, reason); refresh(); }
-                          }}>Dismiss</button>
+                          <button
+                            className="btn btn--secondary btn--sm"
+                            onClick={async () => {
+                              const reason = prompt("Dismiss reason:");
+                              if (reason) {
+                                await dismissProjectFinding(
+                                  projectId,
+                                  f.id,
+                                  reason,
+                                );
+                                refresh();
+                              }
+                            }}
+                          >
+                            Dismiss
+                          </button>
                         )}
-                        {(f.status === "dismissed_by_user" || f.status === "resolved") && (
-                          <button className="btn btn--secondary btn--sm" onClick={async () => { await reopenProjectFinding(projectId, f.id); refresh(); }}>Reopen</button>
+                        {(f.status === "dismissed_by_user" ||
+                          f.status === "resolved") && (
+                          <button
+                            className="btn btn--secondary btn--sm"
+                            onClick={async () => {
+                              await reopenProjectFinding(projectId, f.id);
+                              refresh();
+                            }}
+                          >
+                            Reopen
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -641,7 +994,13 @@ function ProjectDetail({
 
 // ---------------------------------------------------------------------------
 
-function KnowledgeStatusBadge({ status, error }: { status: ProjectKnowledgeStatus; error: string | null }) {
+function KnowledgeStatusBadge({
+  status,
+  error,
+}: {
+  status: ProjectKnowledgeStatus;
+  error: string | null;
+}) {
   const cls: Record<ProjectKnowledgeStatus, string> = {
     pending: "pj-status--pending",
     collecting: "pj-status--progress",
@@ -655,7 +1014,10 @@ function KnowledgeStatusBadge({ status, error }: { status: ProjectKnowledgeStatu
     failed: "Failed",
   };
   return (
-    <span className={`pj-status pj-status--sm ${cls[status]}`} title={error ?? undefined}>
+    <span
+      className={`pj-status pj-status--sm ${cls[status]}`}
+      title={error ?? undefined}
+    >
       {label[status]}
     </span>
   );
@@ -703,9 +1065,16 @@ function CreateProjectModal({
         <div className="modal__header">
           <div>
             <h2 className="modal__title">New Project</h2>
-            <p className="modal__subtitle">A system of related repositories to threat-model.</p>
+            <p className="modal__subtitle">
+              A system of related repositories to threat-model.
+            </p>
           </div>
-          <button className="modal__close" onClick={onClose} type="button" aria-label="Close">
+          <button
+            className="modal__close"
+            onClick={onClose}
+            type="button"
+            aria-label="Close"
+          >
             ✕
           </button>
         </div>
@@ -726,7 +1095,8 @@ function CreateProjectModal({
           </div>
           <div className="form-field">
             <label className="form-label" htmlFor="pj-desc">
-              Description <span className="form-optional">(architecture context)</span>
+              Description{" "}
+              <span className="form-optional">(architecture context)</span>
             </label>
             <textarea
               id="pj-desc"
@@ -738,10 +1108,19 @@ function CreateProjectModal({
             />
           </div>
           <div className="modal__footer">
-            <button type="button" className="btn btn--secondary" onClick={onClose} disabled={submitting}>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn--primary" disabled={submitting || !name.trim()}>
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={submitting || !name.trim()}
+            >
               {submitting ? "Creating…" : "Create"}
             </button>
           </div>
@@ -801,7 +1180,12 @@ function AddRepoModal({
             <h2 className="modal__title">Add Repository</h2>
             <p className="modal__subtitle">A peer repository in this system.</p>
           </div>
-          <button className="modal__close" onClick={onClose} type="button" aria-label="Close">
+          <button
+            className="modal__close"
+            onClick={onClose}
+            type="button"
+            aria-label="Close"
+          >
             ✕
           </button>
         </div>
@@ -812,7 +1196,9 @@ function AddRepoModal({
               <input
                 className="form-input"
                 value={form.githubOwner}
-                onChange={(e) => setForm((f) => ({ ...f, githubOwner: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, githubOwner: e.target.value }))
+                }
                 required
               />
             </div>
@@ -821,7 +1207,9 @@ function AddRepoModal({
               <input
                 className="form-input"
                 value={form.githubRepo}
-                onChange={(e) => setForm((f) => ({ ...f, githubRepo: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, githubRepo: e.target.value }))
+                }
                 placeholder="repository-name"
                 autoFocus
                 required
@@ -832,12 +1220,19 @@ function AddRepoModal({
               <input
                 className="form-input"
                 value={form.githubBranch}
-                onChange={(e) => setForm((f) => ({ ...f, githubBranch: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, githubBranch: e.target.value }))
+                }
               />
             </div>
           </div>
           <div className="modal__footer">
-            <button type="button" className="btn btn--secondary" onClick={onClose} disabled={submitting}>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
               Cancel
             </button>
             <button
@@ -875,61 +1270,135 @@ function KnowledgeDetailModal({
 
   // Check if this entry has a graph file
   const graphJson = useMemo(() => {
-    const val = knowledge?.value as { files?: Array<{ filename: string; content: string }> } | undefined;
-    const graphFile = val?.files?.find(f => f.filename === "threat-map-graph.json");
+    const val = knowledge?.value as
+      | { files?: Array<{ filename: string; content: string }> }
+      | undefined;
+    const graphFile = val?.files?.find(
+      (f) => f.filename === "threat-map-graph.json",
+    );
     if (!graphFile) return null;
-    try { return JSON.parse(graphFile.content); } catch { return null; }
+    try {
+      return JSON.parse(graphFile.content);
+    } catch {
+      return null;
+    }
   }, [knowledge]);
 
-  const loadTab = useCallback(async (t: TabKey) => {
-    if (t === "value" || t === "graph") return;
-    setLoading(true);
+  // Runtime topology ships its own graph shape and needs a different renderer.
+  const topologyJson = useMemo(() => {
+    const val = knowledge?.value as
+      | { files?: Array<{ filename: string; content: string }> }
+      | undefined;
+    const file = val?.files?.find(
+      (f) => f.filename === "observed-topology.json",
+    );
+    if (!file) return null;
     try {
-      if (t === "activity") {
-        setActivity(await getKnowledgeActivity(projectId, knowledgeId));
-      } else {
-        setHistory(await getKnowledgeHistory(projectId, knowledgeId));
-      }
-    } finally {
-      setLoading(false);
+      return JSON.parse(file.content);
+    } catch {
+      return null;
     }
-  }, [projectId, knowledgeId]);
+  }, [knowledge]);
 
-  useEffect(() => { loadTab(tab); }, [tab, loadTab]);
+  const hasGraph = Boolean(graphJson || topologyJson);
+
+  const loadTab = useCallback(
+    async (t: TabKey) => {
+      if (t === "value" || t === "graph") return;
+      setLoading(true);
+      try {
+        if (t === "activity") {
+          setActivity(await getKnowledgeActivity(projectId, knowledgeId));
+        } else {
+          setHistory(await getKnowledgeHistory(projectId, knowledgeId));
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [projectId, knowledgeId],
+  );
+
+  useEffect(() => {
+    loadTab(tab);
+  }, [tab, loadTab]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={tab === "graph" ? { width: "95vw", maxWidth: "95vw", height: "90vh", maxHeight: "90vh" } : undefined} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        style={
+          tab === "graph"
+            ? {
+                width: "95vw",
+                maxWidth: "95vw",
+                height: "90vh",
+                maxHeight: "90vh",
+              }
+            : undefined
+        }
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal__header">
           <div>
             <h2 className="modal__title">Knowledge Detail</h2>
             <p className="modal__subtitle">
               {knowledge?.key ?? knowledgeId.slice(0, 8)}
               {knowledge && (
-                <> &middot; v{knowledge.version} &middot; <KnowledgeStatusBadge status={knowledge.status} error={knowledge.error} /></>
+                <>
+                  {" "}
+                  &middot; v{knowledge.version} &middot;{" "}
+                  <KnowledgeStatusBadge
+                    status={knowledge.status}
+                    error={knowledge.error}
+                  />
+                </>
               )}
             </p>
           </div>
-          <button className="modal__close" onClick={onClose} type="button" aria-label="Close">
+          <button
+            className="modal__close"
+            onClick={onClose}
+            type="button"
+            aria-label="Close"
+          >
             ✕
           </button>
         </div>
 
         <div className="pj-tabs">
-          {(["value", ...(graphJson ? ["graph"] : []), "activity", "history"] as TabKey[]).map((t) => (
+          {(
+            [
+              "value",
+              ...(hasGraph ? ["graph"] : []),
+              "activity",
+              "history",
+            ] as TabKey[]
+          ).map((t) => (
             <button
               key={t}
               className={`pj-tab ${tab === t ? "pj-tab--active" : ""}`}
               onClick={() => setTab(t)}
             >
-              {{ value: "Current Value", graph: "Graph", activity: "Activity Log", history: "Version History" }[t]}
+              {
+                {
+                  value: "Current Value",
+                  graph: "Graph",
+                  activity: "Activity Log",
+                  history: "Version History",
+                }[t]
+              }
             </button>
           ))}
         </div>
 
-        <div className="modal__body" style={tab === "graph" ? { padding: 0, height: "70vh" } : undefined}>
-          {tab === "graph" && graphJson && (
-            <ThreatMapGraph graph={graphJson} />
+        <div
+          className="modal__body"
+          style={tab === "graph" ? { padding: 0, height: "70vh" } : undefined}
+        >
+          {tab === "graph" && graphJson && <ThreatMapGraph graph={graphJson} />}
+          {tab === "graph" && !graphJson && topologyJson && (
+            <RuntimeTopologyGraph graph={topologyJson} />
           )}
 
           {tab === "value" && knowledge && (
@@ -937,71 +1406,84 @@ function KnowledgeDetailModal({
               {knowledge.error && (
                 <div className="pj-run__error">{knowledge.error}</div>
               )}
-              <pre className="pj-json">{JSON.stringify(knowledge.value, null, 2)}</pre>
+              <pre className="pj-json">
+                {JSON.stringify(knowledge.value, null, 2)}
+              </pre>
             </div>
           )}
 
-          {tab === "activity" && (
-            loading ? <div className="pj-state">Loading...</div> : (
-              activity.length === 0 ? (
-                <div className="pj-inline-empty">No activity yet.</div>
-              ) : (
-                <div className="activity-list">
-                  {[...activity].reverse().map((a, i) => (
-                    <div key={a.id ?? i} className="activity-item">
-                      <div className="activity-item__header">
-                        <span className="pj-pill">{a.action}</span>
-                        <span className="activity-item__time">
-                          v{a.version} &middot; {new Date(a.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="activity-item__message">{a.message}</p>
-                      {a.metadata && (
-                        <pre className="activity-item__metadata">
-                          {JSON.stringify(a.metadata, null, 2)}
-                        </pre>
-                      )}
+          {tab === "activity" &&
+            (loading ? (
+              <div className="pj-state">Loading...</div>
+            ) : activity.length === 0 ? (
+              <div className="pj-inline-empty">No activity yet.</div>
+            ) : (
+              <div className="activity-list">
+                {[...activity].reverse().map((a, i) => (
+                  <div key={a.id ?? i} className="activity-item">
+                    <div className="activity-item__header">
+                      <span className="pj-pill">{a.action}</span>
+                      <span className="activity-item__time">
+                        v{a.version} &middot;{" "}
+                        {new Date(a.createdAt).toLocaleString()}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )
-            )
-          )}
+                    <p className="activity-item__message">{a.message}</p>
+                    {a.metadata != null && (
+                      <pre className="activity-item__metadata">
+                        {JSON.stringify(a.metadata, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
 
-          {tab === "history" && (
-            loading ? <div className="pj-state">Loading...</div> : (
-              history.length === 0 ? (
-                <div className="pj-inline-empty">No previous versions.</div>
-              ) : (
-                <div className="pj-history-list">
-                  {history.map((h) => (
-                    <div key={h.id} className="pj-history-item">
-                      <div className="pj-history-item__head">
-                        <span className="pj-pill">v{h.version}</span>
-                        <span className="pj-muted">{h.source}</span>
-                        <span className="pj-muted">{new Date(h.createdAt).toLocaleString()}</span>
-                      </div>
-                      {h.metrics && (
-                        <div className="pj-metrics">
-                          <span>Model: {h.metrics.model}</span>
-                          <span>In: {h.metrics.inputTokens.toLocaleString()}</span>
-                          <span>Out: {h.metrics.outputTokens.toLocaleString()}</span>
-                          <span>Cache R/W: {h.metrics.cacheReadTokens.toLocaleString()}/{h.metrics.cacheWriteTokens.toLocaleString()}</span>
-                          <span>Steps: {h.metrics.steps}</span>
-                          <span>Cost: ${h.metrics.totalCost.toFixed(4)}</span>
-                          <span>{(h.metrics.durationMs / 1000).toFixed(1)}s</span>
-                        </div>
-                      )}
-                      <details>
-                        <summary>Value</summary>
-                        <pre className="pj-json">{JSON.stringify(h.value, null, 2)}</pre>
-                      </details>
+          {tab === "history" &&
+            (loading ? (
+              <div className="pj-state">Loading...</div>
+            ) : history.length === 0 ? (
+              <div className="pj-inline-empty">No previous versions.</div>
+            ) : (
+              <div className="pj-history-list">
+                {history.map((h) => (
+                  <div key={h.id} className="pj-history-item">
+                    <div className="pj-history-item__head">
+                      <span className="pj-pill">v{h.version}</span>
+                      <span className="pj-muted">{h.source}</span>
+                      <span className="pj-muted">
+                        {new Date(h.createdAt).toLocaleString()}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )
-            )
-          )}
+                    {h.metrics && (
+                      <div className="pj-metrics">
+                        <span>Model: {h.metrics.model}</span>
+                        <span>
+                          In: {h.metrics.inputTokens.toLocaleString()}
+                        </span>
+                        <span>
+                          Out: {h.metrics.outputTokens.toLocaleString()}
+                        </span>
+                        <span>
+                          Cache R/W:{" "}
+                          {h.metrics.cacheReadTokens.toLocaleString()}/
+                          {h.metrics.cacheWriteTokens.toLocaleString()}
+                        </span>
+                        <span>Steps: {h.metrics.steps}</span>
+                        <span>Cost: ${h.metrics.totalCost.toFixed(4)}</span>
+                        <span>{(h.metrics.durationMs / 1000).toFixed(1)}s</span>
+                      </div>
+                    )}
+                    <details>
+                      <summary>Value</summary>
+                      <pre className="pj-json">
+                        {JSON.stringify(h.value, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                ))}
+              </div>
+            ))}
         </div>
       </div>
     </div>
