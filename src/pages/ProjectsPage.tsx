@@ -271,6 +271,11 @@ function ProjectDetail({
 
   const repos = project?.repos ?? [];
 
+  const KNOWLEDGE_BASE_EXCLUDED_TYPES = new Set([
+    "security_scan", "scan_summary", "security_test", "test_environment"
+  ]);
+  const knowledgeBaseEntries = knowledge.filter(k => !KNOWLEDGE_BASE_EXCLUDED_TYPES.has(k.knowledgeType));
+
   const handleRemoveRepo = async (repoId: string) => {
     await removeProjectRepo(projectId, repoId);
     refresh();
@@ -425,11 +430,7 @@ function ProjectDetail({
             Add Threat Map
           </button>
         </div>
-        {knowledge.filter(
-          (k) =>
-            k.knowledgeType !== "security_scan" &&
-            k.knowledgeType !== "scan_summary",
-        ).length === 0 ? (
+        {knowledgeBaseEntries.length === 0 ? (
           <div className="pj-inline-empty">
             No knowledge yet. Click <strong>Generate Repo Profiles</strong> to
             start.
@@ -448,13 +449,7 @@ function ProjectDetail({
                 </tr>
               </thead>
               <tbody>
-                {knowledge
-                  .filter(
-                    (k) =>
-                      k.knowledgeType !== "security_scan" &&
-                      k.knowledgeType !== "scan_summary",
-                  )
-                  .map((k) => (
+                {knowledgeBaseEntries.map((k) => (
                     <tr key={k.id}>
                       <td>
                         <span className="pj-pill">{k.knowledgeType}</span>
