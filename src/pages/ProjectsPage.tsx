@@ -14,6 +14,11 @@ import {
   createThreatMapEntry,
   createSecurityScanEntries,
   createScanSummaryEntry,
+  saveTestEnvironment,
+  getTestEnvironment,
+  createSecurityTestEntries as createSecurityTestEntriesApi,
+  startAllSecurityTests,
+  respondToKnowledgeQuestion,
   startKnowledgeCollection,
   resetProjectKnowledge,
   deleteProjectKnowledge,
@@ -174,6 +179,10 @@ function ProjectDetail({
   const [findings, setFindings] = useState<ProjectFinding[]>([]);
   const [findingStats, setFindingStats] = useState<Record<string, number>>({});
   const [generatingProfiles, setGeneratingProfiles] = useState(false);
+  const [envConfig, setEnvConfig] = useState<Array<{ key: string; value: string; description: string }>>([]);
+  const [envExpanded, setEnvExpanded] = useState(false);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
+  const [respondAnswer, setRespondAnswer] = useState("");
   const [viewingKnowledgeId, setViewingKnowledgeId] = useState<string | null>(
     null,
   );
@@ -181,18 +190,28 @@ function ProjectDetail({
 
   const refresh = useCallback(async () => {
     try {
-      const [p, k, f, fs] = await Promise.all([
+      const [p, k, f, fs, te] = await Promise.all([
         getProject(projectId),
         getProjectKnowledge(projectId),
         getProjectFindings(projectId).catch(() => [] as ProjectFinding[]),
         getProjectFindingStats(projectId).catch(
           () => ({}) as Record<string, number>,
         ),
+        getTestEnvironment(projectId).catch(() => null),
       ]);
       setProject(p);
       setKnowledge(k);
       setFindings(f);
       setFindingStats(fs);
+      if (te) {
+        try {
+          const envFile = (te.value as any)?.files?.find((f: any) => f.filename === "test-environment.json");
+          if (envFile) {
+            const parsed = typeof envFile.content === "string" ? JSON.parse(envFile.content) : envFile.content;
+            setEnvConfig(parsed);
+          }
+        } catch { /* ignore parse error */ }
+      }
     } catch {
       /* silent */
     } finally {
@@ -849,6 +868,7 @@ function ProjectDetail({
                     <th>Repo</th>
                     <th>File</th>
                     <th>Status</th>
+                    <th>Test</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -917,6 +937,13 @@ function ProjectDetail({
                           {f.status}
                         </span>
                       </td>
+                      <td>
+                        {f.testResult ? (
+                          <span className={`pj-pill ${f.testResult.result === "validated" ? "pj-pill--critical" : f.testResult.result === "not_exploitable" ? "pj-pill--resolved" : "pj-pill--muted"}`}>
+                            {f.testResult.result === "validated" ? "validated" : f.testResult.result === "not_exploitable" ? "safe" : "n/a"}
+                          </span>
+                        ) : <span className="pj-muted">—</span>}
+                      </td>
                       <td className="pj-actions-cell">
                         {(f.status === "open" || f.status === "dismissed") && (
                           <button
@@ -967,6 +994,197 @@ function ProjectDetail({
             </div>
           </div>
         )}
+      </section>
+
+      {/* Security Tests */}
+      <section className="pj-section">
+        <div className="pj-section__head">
+          <h3 className="pj-section__title">Security Tests</h3>
+          {findings.length > 0 && (
+            <button
+              className="btn btn--primary btn--sm"
+              onClick={async () => {
+                const openFindings = findings.filter(f => f.status === "open" || f.status === "confirmed").map(f => f.id);
+                if (!openFindings.length) return;
+                await createSecurityTestEntriesApi(projectId, openFindings);
+                await refresh();
+              }}
+              disabled={!knowledge.some(k => k.knowledgeType === "test_environment" && k.status === "active")}
+              title={!knowledge.some(k => k.knowledgeType === "test_environment" && k.status === "active") ? "Configure test environment first" : "Create tests for open/confirmed findings"}
+            >
+              Create Tests for Findings
+            </button>
+          )}
+          {knowledge.some(k => k.knowledgeType === "security_test" && (k.status === "pending" || k.status === "failed")) && (
+            <button className="btn btn--secondary btn--sm" onClick={async () => { await startAllSecurityTests(projectId); await refresh(); }}>
+              Start All
+            </button>
+          )}
+        </div>
+
+        {/* Environment Config (collapsible) */}
+        <div style={{ marginBottom: 12 }}>
+          <button className="pj-tab" onClick={() => setEnvExpanded(!envExpanded)} style={{ fontSize: 12, padding: "4px 8px" }}>
+            {envExpanded ? "▼" : "▶"} Target Environment ({envConfig.length} keys)
+          </button>
+          {envExpanded && (
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, marginTop: 8 }}>
+              <table className="pj-table" style={{ marginBottom: 8 }}>
+                <thead>
+                  <tr><th>Key</th><th>Value</th><th>Description</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {envConfig.map((item, i) => (
+                    <tr key={i}>
+                      <td className="pj-mono" style={{ fontSize: 11 }}>{item.key}</td>
+                      <td>
+                        <input
+                          style={{ width: "100%", fontSize: 11, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4 }}
+                          type={item.key.includes("auth") || item.key.includes("token") || item.key.includes("secret") ? "password" : "text"}
+                          value={item.value}
+                          onChange={(e) => { const c = [...envConfig]; c[i] = { ...c[i], value: e.target.value }; setEnvConfig(c); }}
+                        />
+                      </td>
+                      <td style={{ fontSize: 11, color: "#6b7280" }}>{item.description}</td>
+                      <td>
+                        <button className="btn btn--danger btn--sm" onClick={() => setEnvConfig(envConfig.filter((_, j) => j !== i))}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn--secondary btn--sm" onClick={() => setEnvConfig([...envConfig, { key: "", value: "", description: "" }])}>+ Add Key</button>
+                <button className="btn btn--primary btn--sm" onClick={async () => { await saveTestEnvironment(projectId, envConfig); await refresh(); }}>Save Environment</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tests table */}
+        {(() => {
+          const tests = knowledge.filter(k => k.knowledgeType === "security_test");
+          if (tests.length === 0) {
+            return (
+              <div className="pj-inline-empty">
+                {knowledge.some(k => k.knowledgeType === "test_environment" && k.status === "active")
+                  ? "No tests yet. Click Create Tests for Findings to start."
+                  : "Configure the target environment first, then create tests."}
+              </div>
+            );
+          }
+          const validated = tests.filter(t => (t.value as any).result === "validated").length;
+          const notExpl = tests.filter(t => (t.value as any).result === "not_exploitable").length;
+          const notTestable = tests.filter(t => (t.value as any).result === "not_testable").length;
+          const needsInfo = tests.filter(t => t.status === "needs_info").length;
+          const collecting = tests.filter(t => t.status === "collecting").length;
+          const pending = tests.filter(t => t.status === "pending").length;
+          return (
+            <div>
+              <div className="pj-metrics" style={{ marginBottom: 12 }}>
+                <span>{tests.length} total</span>
+                {validated > 0 && <span style={{ color: "#dc2626" }}>{validated} validated</span>}
+                {notExpl > 0 && <span style={{ color: "#059669" }}>{notExpl} not exploitable</span>}
+                {notTestable > 0 && <span style={{ color: "#6b7280" }}>{notTestable} not testable</span>}
+                {needsInfo > 0 && <span style={{ color: "#d97706" }}>{needsInfo} needs input</span>}
+                {collecting > 0 && <span style={{ color: "#6366f1" }}>{collecting} running</span>}
+                {pending > 0 && <span>{pending} pending</span>}
+              </div>
+              <div className="pj-table-wrapper">
+                <table className="pj-table">
+                  <thead>
+                    <tr><th>Finding</th><th>Status</th><th>Result</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {tests.map((t) => {
+                      const tv = t.value as any;
+                      const resultBadge = tv.result === "validated"
+                        ? <span className="pj-pill pj-pill--critical">validated</span>
+                        : tv.result === "not_exploitable"
+                        ? <span className="pj-pill pj-pill--resolved">not exploitable</span>
+                        : tv.result === "not_testable"
+                        ? <span className="pj-pill pj-pill--muted">not testable</span>
+                        : <span className="pj-muted">—</span>;
+
+                      return (
+                        <tr key={t.id}>
+                          <td>
+                            <div style={{ fontSize: 13 }}>{tv.findingTitle ?? t.key}</div>
+                            <div style={{ fontSize: 11, color: "#6b7280" }}>{tv.findingSeverity} · {tv.findingRepo}/{tv.findingFile}</div>
+                          </td>
+                          <td>
+                            {t.status === "needs_info"
+                              ? <span className="pj-pill" style={{ background: "#fff7ed", color: "#d97706", border: "1px solid #fdba74" }}>needs input</span>
+                              : <span className={`pj-pill ${t.status === "active" ? "pj-pill--resolved" : t.status === "failed" ? "pj-pill--critical" : t.status === "collecting" ? "" : "pj-pill--muted"}`}>{t.status}</span>}
+                          </td>
+                          <td>{resultBadge}</td>
+                          <td className="pj-actions-cell">
+                            {(t.status === "pending" || t.status === "failed") && (
+                              <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, t.id); refresh(); }}>Start</button>
+                            )}
+                            {t.status === "active" && (
+                              <button className="btn btn--primary btn--sm" onClick={async () => { await startKnowledgeCollection(projectId, t.id); refresh(); }}>Retest</button>
+                            )}
+                            {t.status === "collecting" && (
+                              <button className="btn btn--danger btn--sm" onClick={async () => { await resetProjectKnowledge(projectId, t.id); refresh(); }}>Reset</button>
+                            )}
+                            <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(t.id)}>View</button>
+                            <button className="btn btn--danger btn--sm" onClick={async () => { await deleteProjectKnowledge(projectId, t.id); refresh(); }}>✕</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Inline needs_info Q&A rows */}
+                    {tests.filter(t => t.status === "needs_info").map((t) => {
+                      const tv = t.value as any;
+                      const pq = tv.pendingQuestion;
+                      if (!pq) return null;
+                      return (
+                        <tr key={`qa-${t.id}`}>
+                          <td colSpan={4} style={{ background: "#fffbeb", padding: 12 }}>
+                            <div style={{ fontSize: 12, color: "#92400e", marginBottom: 6 }}>
+                              <strong>Agent asks:</strong> {pq.question}
+                            </div>
+                            {pq.context && <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>{pq.context}</div>}
+                            {pq.suggestedOptions?.length > 0 && (
+                              <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+                                {pq.suggestedOptions.map((opt: string, i: number) => (
+                                  <button key={i} className="btn btn--secondary btn--sm" style={{ fontSize: 11 }} onClick={() => setRespondAnswer(opt)}>{opt}</button>
+                                ))}
+                              </div>
+                            )}
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input
+                                style={{ flex: 1, fontSize: 12, padding: "4px 8px", border: "1px solid #d1d5db", borderRadius: 4 }}
+                                placeholder={`Answer (${pq.field})...`}
+                                value={respondingTo === t.id ? respondAnswer : ""}
+                                onFocus={() => setRespondingTo(t.id)}
+                                onChange={(e) => { setRespondingTo(t.id); setRespondAnswer(e.target.value); }}
+                              />
+                              <button
+                                className="btn btn--primary btn--sm"
+                                disabled={!respondAnswer.trim() || respondingTo !== t.id}
+                                onClick={async () => {
+                                  await respondToKnowledgeQuestion(projectId, t.id, respondAnswer);
+                                  setRespondAnswer("");
+                                  setRespondingTo(null);
+                                  await refresh();
+                                }}
+                              >
+                                Submit
+                              </button>
+                              <button className="btn btn--secondary btn--sm" onClick={async () => { await resetProjectKnowledge(projectId, t.id); refresh(); }}>Skip</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {addingRepo && (

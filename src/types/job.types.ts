@@ -344,6 +344,13 @@ export interface ProjectFinding {
   status: ProjectFindingStatus;
   dismissReason: string | null;
   dismissedBy: string | null;
+  testResult: {
+    result: "validated" | "not_exploitable" | "not_testable";
+    testKnowledgeId: string;
+    detail: string;
+    evidence: string | null;
+    testedAt: string;
+  } | null;
   lastSeenAt: string;
   createdAt: string;
   updatedAt: string;

@@ -983,6 +983,61 @@ export async function resetProjectKnowledge(
   return res.data;
 }
 
+// --- Security tests ---
+
+export async function saveTestEnvironment(
+  projectId: string,
+  config: Array<{ key: string; value: string; description: string }>,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/test-environment`,
+    { method: "PUT", body: JSON.stringify({ config }) },
+  );
+  return res.data;
+}
+
+export async function getTestEnvironment(
+  projectId: string,
+): Promise<ProjectKnowledge | null> {
+  const res = await apiFetch<ProjectKnowledge | null>(
+    `/project/${encodeURIComponent(projectId)}/test-environment`,
+  );
+  return res.data;
+}
+
+export async function createSecurityTestEntries(
+  projectId: string,
+  findingIds: string[],
+): Promise<ProjectKnowledge[]> {
+  const res = await apiFetch<ProjectKnowledge[]>(
+    `/project/${encodeURIComponent(projectId)}/security-tests`,
+    { method: "POST", body: JSON.stringify({ findingIds }) },
+  );
+  return res.data;
+}
+
+export async function startAllSecurityTests(
+  projectId: string,
+): Promise<{ started: number }> {
+  const res = await apiFetch<{ started: number }>(
+    `/project/${encodeURIComponent(projectId)}/security-tests/start-all`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function respondToKnowledgeQuestion(
+  projectId: string,
+  knowledgeId: string,
+  answer: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/knowledge/${encodeURIComponent(knowledgeId)}/respond`,
+    { method: "POST", body: JSON.stringify({ answer }) },
+  );
+  return res.data;
+}
+
 export async function deleteProjectKnowledge(
   projectId: string,
   knowledgeId: string,
