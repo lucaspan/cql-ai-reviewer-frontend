@@ -1049,6 +1049,39 @@ export async function deleteProjectKnowledge(
   return res.data;
 }
 
+// --- Pentest Swarm ---
+
+export async function startPentestSwarm(
+  projectId: string,
+  options?: { maxTokens?: number; maxSpecialists?: number; maxDurationMinutes?: number },
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/pentest-swarm`,
+    { method: "POST", body: JSON.stringify(options ?? {}) },
+  );
+  return res.data;
+}
+
+export async function getPentestSwarms(
+  projectId: string,
+): Promise<ProjectKnowledge[]> {
+  const res = await apiFetch<ProjectKnowledge[]>(
+    `/project/${encodeURIComponent(projectId)}/pentest-swarm`,
+  );
+  return res.data;
+}
+
+export async function stopPentestSwarm(
+  projectId: string,
+  knowledgeId: string,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/pentest-swarm/${encodeURIComponent(knowledgeId)}/stop`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 // --- App Catalog Permissions ---
 
 export async function getAppCatPermissions(): Promise<AppCatPermission[]> {

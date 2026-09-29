@@ -329,7 +329,7 @@ export interface ProjectFinding {
   projectKnowledgeId: string | null;
   projectKnowledgeVersion: number | null;
   repo: string;
-  file: string;
+  file: string | null;
   lineStart: number | null;
   lineEnd: number | null;
   title: string;
@@ -340,6 +340,8 @@ export interface ProjectFinding {
   failureMode: string;
   recommendedFix: string;
   whatWouldConfirm: string | null;
+  source: string | null;
+  endpoint: string | null;
   metadata: Record<string, unknown> | null;
   status: ProjectFindingStatus;
   dismissReason: string | null;

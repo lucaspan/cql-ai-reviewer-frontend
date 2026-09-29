@@ -272,7 +272,7 @@ function ProjectDetail({
   const repos = project?.repos ?? [];
 
   const KNOWLEDGE_BASE_EXCLUDED_TYPES = new Set([
-    "security_scan", "scan_summary", "security_test", "test_environment"
+    "security_scan", "scan_summary", "security_test", "test_environment", "pentest_swarm"
   ]);
   const knowledgeBaseEntries = knowledge.filter(k => !KNOWLEDGE_BASE_EXCLUDED_TYPES.has(k.knowledgeType));
 
@@ -922,8 +922,9 @@ function ProjectDetail({
                       </td>
                       <td className="pj-mono">{f.repo}</td>
                       <td className="pj-mono">
-                        {f.file}
-                        {f.lineStart ? `:${f.lineStart}` : ""}
+                        {f.file
+                          ? `${f.file}${f.lineStart ? `:${f.lineStart}` : ""}`
+                          : f.endpoint ?? "—"}
                       </td>
                       <td>
                         <span
