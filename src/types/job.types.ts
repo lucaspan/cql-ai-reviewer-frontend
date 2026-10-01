@@ -328,7 +328,7 @@ export interface ProjectFinding {
   projectId: string;
   projectKnowledgeId: string | null;
   projectKnowledgeVersion: number | null;
-  repo: string;
+  repo: string | null;
   file: string | null;
   lineStart: number | null;
   lineEnd: number | null;
