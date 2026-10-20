@@ -43,6 +43,13 @@ interface ModelRoutingSetting {
   inventoryModel: string;
 }
 
+interface LlmRouterSetting {
+  enabled: boolean;
+  agentModel: string;
+  textModel: string;
+  piBaseUrl: string | null;
+}
+
 interface FindingsAnalysisValue {
   text: string;
   generatedAt: string;
@@ -117,6 +124,9 @@ export default function SettingsPage() {
     useState<ModelRoutingSetting | null>(null);
   const [summarySetting, setSummarySetting] =
     useState<SummaryFindingsSetting | null>(null);
+  // null = not loaded or not supported by this backend (card is hidden)
+  const [llmRouterSetting, setLlmRouterSetting] =
+    useState<LlmRouterSetting | null>(null);
   const [commitReviewSetting, setCommitReviewSetting] =
     useState<CommitReviewSetting | null>(null);
   const [commitReviewDraftDate, setCommitReviewDraftDate] = useState<string>(
@@ -171,6 +181,10 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
+    // Loaded separately: backends without the LLM router don't have this setting
+    getSetting("LLM_ROUTER_SETTING")
+      .then((res) => setLlmRouterSetting(res.value as unknown as LlmRouterSetting))
+      .catch(() => setLlmRouterSetting(null));
   };
 
   const saveSchedulerSetting = async (updated: JobSchedulerSetting) => {
@@ -221,6 +235,26 @@ export default function SettingsPage() {
     try {
       await updateSetting(
         "MODEL_ROUTING_SETTING",
+        updated as unknown as Record<string, unknown>,
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError((err as Error).message);
+      loadSettings();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveLlmRouterSetting = async (updated: LlmRouterSetting) => {
+    setLlmRouterSetting(updated);
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      await updateSetting(
+        "LLM_ROUTER_SETTING",
         updated as unknown as Record<string, unknown>,
       );
       setSaved(true);
@@ -1021,6 +1055,30 @@ export default function SettingsPage() {
           </>
         )}
       </div>
+
+      {llmRouterSetting && (
+        <div className="settings-card">
+          <h3 className="settings-card__title">LLM Router</h3>
+          <p className="settings-card__desc">
+            Send review agent and text-completion calls through the in-process LLM router, which
+            records every call's real cost in its ledger. Models still come from Model Routing
+            above. When off, calls go to Bedrock directly, exactly as before. Takes effect for the
+            next job; running jobs keep their current mode.
+          </p>
+
+          <div className="settings-toggles">
+            <ToggleRow
+              label="Router Enabled"
+              description="If the router fails, a run falls back to calling Bedrock directly"
+              checked={llmRouterSetting.enabled}
+              onChange={() =>
+                saveLlmRouterSetting({ ...llmRouterSetting, enabled: !llmRouterSetting.enabled })
+              }
+              disabled={saving}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="settings-card">
         <h3 className="settings-card__title">Summary Findings Pages</h3>
