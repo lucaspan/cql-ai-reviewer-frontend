@@ -1,0 +1,240 @@
+.evaluations {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.evaluations__toast {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.evaluations__section {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #f0f0f3;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  padding: 20px 24px;
+}
+
+.evaluations__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.evaluations__section-head h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.evaluations__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evaluations__actions select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.evaluations__btn {
+  background: #1a1a2e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.evaluations__btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+}
+
+.evaluations__btn--ghost {
+  background: transparent;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.evaluations__btn--ghost:disabled {
+  background: transparent;
+  color: #d1d5db;
+}
+
+.evaluations__empty {
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+  padding: 32px;
+}
+
+.evaluations__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.evaluations__card {
+  border: 1px solid #f0f0f3;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fcfcfd;
+}
+
+.evaluations__card h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.evaluations__card-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+
+.evaluations__card-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+}
+
+.evaluations__card-meta dt {
+  font-size: 11px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.evaluations__card-meta dd {
+  margin: 0;
+  font-size: 13px;
+  color: #111827;
+  font-weight: 500;
+}
+
+.evaluations__repos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evaluations__repos li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.evaluations__repos code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.evaluations__table-wrap {
+  overflow-x: auto;
+}
+
+.evaluations__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.evaluations__table thead {
+  background: #f9fafb;
+}
+
+.evaluations__table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.evaluations__table td {
+  padding: 10px 12px;
+  border-top: 1px solid #f0f0f3;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.evaluations__table tbody tr:hover {
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.evaluations__cell--warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.evaluations__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.evaluations__badge--pending {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.evaluations__badge--running {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.evaluations__badge--completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.evaluations__badge--failed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.evaluations__badge--skipped {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+@media only screen and (max-width: 900px) {
+  .evaluations__card-meta {
+    grid-template-columns: 1fr;
+  }
+}

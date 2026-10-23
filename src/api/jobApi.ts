@@ -26,7 +26,19 @@ import type {
   AppCatPermission,
   Paginated,
   ListParams,
+  DatasetSummary,
+  EvaluationRun,
+  EvaluationRunDetail,
+  EvaluationComparison,
+  StartRunParams,
+  PaginationMeta,
 } from "../types/job.types";
+import type {
+  CostJobKind,
+  CostSummary,
+  JobCostDetail,
+  JobCostRow,
+} from "../types/cost.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
 // In production, set VITE_API_BASE_URL and remove the '/api' fallback as needed.
@@ -587,6 +599,58 @@ export async function getCommitReviewJobMetrics(): Promise<any[]> {
   return res.data?.data ?? res.data ?? [];
 }
 
+// --- Costs API ---
+
+export interface CostFilter {
+  kinds?: CostJobKind[];
+  from?: string; // ISO
+  to?: string; // ISO
+  q?: string;
+}
+
+function costFilterQuery(filter: CostFilter): URLSearchParams {
+  const query = new URLSearchParams();
+  if (filter.kinds?.length) query.set("kind", filter.kinds.join(","));
+  if (filter.from) query.set("from", filter.from);
+  if (filter.to) query.set("to", filter.to);
+  if (filter.q) query.set("q", filter.q);
+  return query;
+}
+
+export async function getCostSummary(filter: CostFilter): Promise<CostSummary> {
+  const query = costFilterQuery(filter);
+  query.set("tz", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const res = await apiFetch<CostSummary>(`/costs/summary?${query}`);
+  return res.data;
+}
+
+export async function getJobCosts(
+  filter: CostFilter & {
+    orderBy?: "createdAt" | "totalCost" | "lastRunAt";
+    order?: "ASC" | "DESC";
+    page?: number;
+    limit?: number;
+  },
+): Promise<{ data: JobCostRow[]; pagination: PaginationMeta }> {
+  const query = costFilterQuery(filter);
+  applyListParams(query, filter);
+  const res = await apiFetch<{
+    data: JobCostRow[];
+    pagination: PaginationMeta;
+  }>(`/costs/jobs?${query}`);
+  return res.data;
+}
+
+export async function getJobCost(
+  kind: CostJobKind,
+  id: string,
+): Promise<JobCostDetail> {
+  const res = await apiFetch<JobCostDetail>(
+    `/costs/jobs/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
+  );
+  return res.data;
+}
+
 export async function getCommitReviewJobTypeVersions(
   typeId: string,
 ): Promise<any[]> {
@@ -1053,7 +1117,11 @@ export async function deleteProjectKnowledge(
 
 export async function startPentestSwarm(
   projectId: string,
-  options?: { maxTokens?: number; maxSpecialists?: number; maxDurationMinutes?: number },
+  options?: {
+    maxTokens?: number;
+    maxSpecialists?: number;
+    maxDurationMinutes?: number;
+  },
 ): Promise<ProjectKnowledge> {
   const res = await apiFetch<ProjectKnowledge>(
     `/project/${encodeURIComponent(projectId)}/pentest-swarm`,
@@ -1165,5 +1233,90 @@ export async function validateGithubToken(params: {
     method: "POST",
     body: JSON.stringify(params),
   });
+  return res.data;
+}
+
+// --- Golden dataset evaluation ---
+
+export async function getDatasets(): Promise<DatasetSummary[]> {
+  const res = await apiFetch<DatasetSummary[]>("/evaluation/dataset");
+  return res.data;
+}
+
+export async function getDataset(
+  datasetId: string,
+): Promise<Record<string, unknown>> {
+  const res = await apiFetch<Record<string, unknown>>(
+    `/evaluation/dataset/${encodeURIComponent(datasetId)}`,
+  );
+  return res.data;
+}
+
+export async function captureDataset(params: {
+  projectId: string;
+  datasetId: string;
+  description: string;
+  commitShas?: Record<string, string>;
+  flowSubset?: string[];
+}): Promise<Record<string, unknown>> {
+  const res = await apiFetch<Record<string, unknown>>(
+    "/evaluation/dataset/capture",
+    { method: "POST", body: JSON.stringify(params) },
+  );
+  return res.data;
+}
+
+export async function startEvaluationRun(
+  params: StartRunParams,
+): Promise<EvaluationRun> {
+  const res = await apiFetch<EvaluationRun>("/evaluation/run", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return res.data;
+}
+
+export async function getEvaluationRuns(
+  datasetId?: string,
+  params?: ListParams,
+): Promise<Paginated<EvaluationRun>> {
+  const query = new URLSearchParams();
+  if (datasetId) query.set("datasetId", datasetId);
+  applyListParams(query, params);
+  const res = await apiFetch<Paginated<EvaluationRun>>(
+    `/evaluation/run?${query.toString()}`,
+  );
+  return res.data;
+}
+
+export async function getEvaluationRun(
+  runId: string,
+): Promise<EvaluationRunDetail> {
+  const res = await apiFetch<EvaluationRunDetail>(
+    `/evaluation/run/${encodeURIComponent(runId)}`,
+  );
+  return res.data;
+}
+
+export async function compareEvaluationRuns(
+  baseRunId: string,
+  targetRunId: string,
+): Promise<EvaluationComparison> {
+  const query = new URLSearchParams({ baseRunId, targetRunId });
+  const res = await apiFetch<EvaluationComparison>(
+    `/evaluation/compare?${query.toString()}`,
+  );
+  return res.data;
+}
+
+export async function getDatasetPatch(
+  runId: string,
+  itemKeys?: string[],
+): Promise<Record<string, unknown>> {
+  const query = new URLSearchParams();
+  if (itemKeys?.length) query.set("itemKeys", itemKeys.join(","));
+  const res = await apiFetch<Record<string, unknown>>(
+    `/evaluation/run/${encodeURIComponent(runId)}/dataset-patch?${query.toString()}`,
+  );
   return res.data;
 }

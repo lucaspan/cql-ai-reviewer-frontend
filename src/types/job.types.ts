@@ -1,4 +1,4 @@
-export type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+export type JobStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
 export interface GithubReviewJob {
   id: string;
@@ -275,7 +275,11 @@ export interface Project {
   repos?: ProjectRepo[];
 }
 
-export type ProjectKnowledgeStatus = "pending" | "collecting" | "active" | "failed";
+export type ProjectKnowledgeStatus =
+  | "pending"
+  | "collecting"
+  | "active"
+  | "failed";
 
 export interface ProjectKnowledge {
   id: string;
@@ -321,7 +325,12 @@ export interface ProjectKnowledgeHistory {
   createdAt: string;
 }
 
-export type ProjectFindingStatus = "open" | "confirmed" | "dismissed" | "dismissed_by_user" | "resolved";
+export type ProjectFindingStatus =
+  | "open"
+  | "confirmed"
+  | "dismissed"
+  | "dismissed_by_user"
+  | "resolved";
 
 export interface ProjectFinding {
   id: string;
@@ -366,4 +375,134 @@ export interface AppCatPermission {
   viewerEmails: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+// --- Golden dataset evaluation ---
+
+export type EvaluatedStage =
+  | "endpoint_inventory"
+  | "threat_map"
+  | "security_scan"
+  | "scan_summary";
+
+export type EvaluationRunStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed";
+
+export interface DatasetSummary {
+  id: string;
+  description: string;
+  capturedAt: string;
+  projectName: string;
+  repos: { repo: string; commitSha: string }[];
+  dynatraceCapturedAt: string;
+  dynatraceTimeframe: string;
+  expectedCounts: Record<string, number>;
+}
+
+export interface ScoredItem {
+  key: string;
+  label: string;
+  detail?: Record<string, unknown>;
+}
+
+export interface ScoredMatch {
+  expected: ScoredItem;
+  actual: ScoredItem;
+  rationale?: string;
+  fieldAgreement: Record<string, number>;
+}
+
+export interface MatchProvenance {
+  model: string;
+  promptVersion: string;
+  degraded: boolean;
+  error?: string;
+}
+
+export interface StageMetrics {
+  durationMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  steps: number;
+  modelId: string;
+}
+
+export interface StageScore {
+  stage: EvaluatedStage;
+  status: "completed" | "failed" | "skipped";
+  error?: string;
+  expectedCount: number;
+  actualCount: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  matched: ScoredMatch[];
+  missed: ScoredItem[];
+  extra: ScoredItem[];
+  fieldAccuracy: Record<string, number>;
+  matching: MatchProvenance;
+  metrics: StageMetrics;
+}
+
+export interface EvaluationRunTotals {
+  meanF1: number;
+  totalCost: number;
+  durationMs: number;
+}
+
+export interface EvaluationRun {
+  id: string;
+  datasetId: string;
+  label: string | null;
+  modelConfig: Record<string, string>;
+  status: EvaluationRunStatus;
+  error: string | null;
+  totals: EvaluationRunTotals | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvaluationStageResult {
+  id: string;
+  evaluationRunId: string;
+  stage: EvaluatedStage;
+  score: StageScore;
+  actualOutput?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface EvaluationRunDetail extends EvaluationRun {
+  stageResults: EvaluationStageResult[];
+}
+
+export interface StageDelta {
+  stage: EvaluatedStage;
+  baseF1: number | null;
+  targetF1: number | null;
+  f1Delta: number | null;
+  baseCost: number;
+  targetCost: number;
+  costDelta: number;
+  gained: ScoredItem[];
+  lost: ScoredItem[];
+}
+
+export interface EvaluationComparison {
+  base: EvaluationRun;
+  target: EvaluationRun;
+  stages: StageDelta[];
+}
+
+export interface StartRunParams {
+  datasetId: string;
+  label?: string;
+  stages?: EvaluatedStage[];
+  modelOverrides?: Record<string, string>;
+  concurrency?: number;
 }

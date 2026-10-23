@@ -1,24 +1,26 @@
 import { useState } from "react";
 import JobsPage from "./pages/JobsPage";
 import JobTypesPage from "./pages/JobTypesPage";
-import MetricsPage from "./pages/MetricsPage";
+import CostsPage from "./pages/CostsPage";
 import ReportsPage from "./pages/ReportsPage";
 import RepoConfigPage from "./pages/RepoConfigPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
 import DevToolsPage from "./pages/DevToolsPage";
 import CommitReviewJobPage from "./pages/CommitReviewJobPage";
+import EvaluationsPage from "./pages/EvaluationsPage";
 import GitHubLoginPage from "./pages/GitHubLoginPage";
 import "./App.css";
 
 type Page =
   | "jobs"
   | "job-types"
-  | "metrics"
+  | "costs"
   | "reports"
   | "repo-config"
   | "projects"
   | "commit-reviews"
+  | "evaluations"
   | "settings"
   | "dev-tools"
   | "github-login";
@@ -33,7 +35,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
       { id: "projects", label: "Threat Modeling" },
       { id: "commit-reviews", label: "Commit Reviews" },
       { id: "reports", label: "Reports" },
-      { id: "metrics", label: "Metrics" },
+      { id: "costs", label: "Costs" },
     ],
   },
   {
@@ -41,6 +43,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
     items: [
       { id: "repo-config", label: "Repositories" },
       { id: "job-types", label: "Job Types" },
+      { id: "evaluations", label: "Evaluations" },
       { id: "settings", label: "Settings" },
       { id: "dev-tools", label: "Dev Tools" },
       { id: "github-login", label: "GitHub Login" },
@@ -53,9 +56,10 @@ const PAGE_SUBTITLE: Record<Page, string> = {
   projects: "Threat Modeling",
   "commit-reviews": "Commit Reviews",
   reports: "Reports",
-  metrics: "Metrics",
+  costs: "What each job cost",
   "repo-config": "Repositories",
   "job-types": "Job Types",
+  evaluations: "Golden Dataset Evaluations",
   settings: "Settings",
   "dev-tools": "Dev Tools",
   "github-login": "GitHub Login",
@@ -110,10 +114,10 @@ function App() {
             <JobTypesPage />
           </PageShell>
         );
-      case "metrics":
+      case "costs":
         return (
-          <PageShell subtitle={PAGE_SUBTITLE.metrics}>
-            <MetricsPage />
+          <PageShell subtitle={PAGE_SUBTITLE.costs}>
+            <CostsPage />
           </PageShell>
         );
       case "reports":
@@ -150,6 +154,12 @@ function App() {
         return (
           <PageShell subtitle={PAGE_SUBTITLE["dev-tools"]}>
             <DevToolsPage />
+          </PageShell>
+        );
+      case "evaluations":
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE.evaluations}>
+            <EvaluationsPage />
           </PageShell>
         );
       case "github-login":
