@@ -9,6 +9,8 @@ import {
   deleteAppCatPermission,
 } from "../api/jobApi";
 import type { ReviewJobType, AppCatPermission } from "../types/job.types";
+import ModelsSettings from "../components/ModelsSettings";
+import { modelLabel } from "../utils/modelLabel";
 import "./SettingsPage.css";
 
 interface JobSchedulerSetting {
@@ -32,22 +34,9 @@ interface JobCreationSetting {
   sourceQueryPodDomains: string[];
 }
 
+// Stored as MODEL_ROUTING_SETTING; models are per-workload router policies (Models card)
 interface ModelRoutingSetting {
-  enabled: boolean;
-  piModel: string;
   piTimeoutMinutes: number;
-  discoveryModel: string;
-  reviewModel: string;
-  summaryModel: string;
-  diffModel: string;
-  inventoryModel: string;
-}
-
-interface LlmRouterSetting {
-  enabled: boolean;
-  agentModel: string;
-  textModel: string;
-  piBaseUrl: string | null;
 }
 
 interface FindingsAnalysisValue {
@@ -59,7 +48,6 @@ interface FindingsAnalysisValue {
 
 interface SummaryFindingsSetting {
   branchPatterns: string[];
-  analysisModel: string;
   analysisPrompt: string;
   piiAnalysis: FindingsAnalysisValue | null;
   performanceAnalysis: FindingsAnalysisValue | null;
@@ -70,17 +58,7 @@ interface CommitReviewSetting {
   processorEnabled: boolean;
   minLinesChanged: number;
   startAfterDate: string;
-  model: string;
 }
-
-const BEDROCK_MODELS = [
-  { id: "us.anthropic.claude-opus-4-7", label: "Opus 4.7" },
-  { id: "us.anthropic.claude-opus-4-6-v1", label: "Opus 4.6" },
-  { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5" },
-  { id: "us.anthropic.claude-sonnet-4-6", label: "Sonnet 4.6" },
-  { id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Sonnet 4.5" },
-  { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Haiku 4.5" },
-];
 
 /** Lowercase + trim a single email. */
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
@@ -124,9 +102,6 @@ export default function SettingsPage() {
     useState<ModelRoutingSetting | null>(null);
   const [summarySetting, setSummarySetting] =
     useState<SummaryFindingsSetting | null>(null);
-  // null = not loaded or not supported by this backend (card is hidden)
-  const [llmRouterSetting, setLlmRouterSetting] =
-    useState<LlmRouterSetting | null>(null);
   const [commitReviewSetting, setCommitReviewSetting] =
     useState<CommitReviewSetting | null>(null);
   const [commitReviewDraftDate, setCommitReviewDraftDate] = useState<string>(
@@ -181,10 +156,6 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-    // Loaded separately: backends without the LLM router don't have this setting
-    getSetting("LLM_ROUTER_SETTING")
-      .then((res) => setLlmRouterSetting(res.value as unknown as LlmRouterSetting))
-      .catch(() => setLlmRouterSetting(null));
   };
 
   const saveSchedulerSetting = async (updated: JobSchedulerSetting) => {
@@ -235,26 +206,6 @@ export default function SettingsPage() {
     try {
       await updateSetting(
         "MODEL_ROUTING_SETTING",
-        updated as unknown as Record<string, unknown>,
-      );
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      setError((err as Error).message);
-      loadSettings();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveLlmRouterSetting = async (updated: LlmRouterSetting) => {
-    setLlmRouterSetting(updated);
-    setSaving(true);
-    setSaved(false);
-    setError(null);
-    try {
-      await updateSetting(
-        "LLM_ROUTER_SETTING",
         updated as unknown as Record<string, unknown>,
       );
       setSaved(true);
@@ -974,111 +925,31 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <ModelsSettings />
+
       <div className="settings-card">
-        <h3 className="settings-card__title">Model Routing</h3>
+        <h3 className="settings-card__title">Review Agents</h3>
         <p className="settings-card__desc">
-          Dynamically switch models per review phase to reduce cost. When disabled, all phases use the default model (PI_MODEL env var).
+          Limits for the pi review agents. Their models are set per workload under Models.
         </p>
-
-        <div className="settings-toggles">
-          <ToggleRow
-            label="Routing Enabled"
-            description="Switch models between Discovery, Review, and Summary phases"
-            checked={routingSetting?.enabled ?? false}
-            onChange={() => {
-              if (!routingSetting) return;
-              saveRoutingSetting({ ...routingSetting, enabled: !routingSetting.enabled });
-            }}
-            disabled={saving}
-          />
-        </div>
-
         {routingSetting && (
-          <>
-            <div className="settings-section">
-              <label className="form-label">Default Model &amp; Timeout</label>
-              <div className="settings-add-row" style={{ marginBottom: 8 }}>
-                <span style={{ minWidth: 140, fontSize: 13 }}>Pi Model</span>
-                <select
-                  className="form-input"
-                  value={routingSetting.piModel}
-                  onChange={(e) => saveRoutingSetting({ ...routingSetting, piModel: e.target.value })}
-                  disabled={saving}
-                  style={{ flex: 1 }}
-                >
-                  {BEDROCK_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="settings-add-row" style={{ marginBottom: 8 }}>
-                <span style={{ minWidth: 140, fontSize: 13 }}>Timeout (minutes)</span>
-                <input
-                  className="form-input"
-                  type="number"
-                  value={routingSetting.piTimeoutMinutes}
-                  onChange={(e) => saveRoutingSetting({ ...routingSetting, piTimeoutMinutes: Number(e.target.value) })}
-                  disabled={saving}
-                  style={{ width: 100 }}
-                />
-              </div>
-            </div>
-
-            <div className="settings-section">
-              <label className="form-label">Phase Model Assignments</label>
-              {(["discoveryModel", "reviewModel", "summaryModel", "diffModel", "inventoryModel"] as const).map((field) => {
-                const labels: Record<string, string> = {
-                  discoveryModel: "Discovery (Phase 1)",
-                  reviewModel: "Review (Phase 2)",
-                  summaryModel: "Summary (Phase 3)",
-                  diffModel: "Diff Mode",
-                  inventoryModel: "MD Inventory",
-                };
-                return (
-                  <div key={field} className="settings-add-row" style={{ marginBottom: 8 }}>
-                    <span style={{ minWidth: 140, fontSize: 13 }}>{labels[field]}</span>
-                    <select
-                      className="form-input"
-                      value={routingSetting[field]}
-                      onChange={(e) => saveRoutingSetting({ ...routingSetting, [field]: e.target.value })}
-                      disabled={saving || !routingSetting.enabled}
-                      style={{ flex: 1 }}
-                    >
-                      {BEDROCK_MODELS.map((m) => (
-                        <option key={m.id} value={m.id}>{m.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-
-      {llmRouterSetting && (
-        <div className="settings-card">
-          <h3 className="settings-card__title">LLM Router</h3>
-          <p className="settings-card__desc">
-            Send review agent and text-completion calls through the in-process LLM router, which
-            records every call's real cost in its ledger. Models still come from Model Routing
-            above. When off, calls go to Bedrock directly, exactly as before. Takes effect for the
-            next job; running jobs keep their current mode.
-          </p>
-
-          <div className="settings-toggles">
-            <ToggleRow
-              label="Router Enabled"
-              description="If the router fails, a run falls back to calling Bedrock directly"
-              checked={llmRouterSetting.enabled}
-              onChange={() =>
-                saveLlmRouterSetting({ ...llmRouterSetting, enabled: !llmRouterSetting.enabled })
+          <div className="settings-add-row">
+            <span style={{ minWidth: 140, fontSize: 13 }}>Timeout (minutes)</span>
+            <input
+              className="form-input"
+              type="number"
+              min={1}
+              value={routingSetting.piTimeoutMinutes}
+              onChange={(e) =>
+                setRoutingSetting({ ...routingSetting, piTimeoutMinutes: Number(e.target.value) })
               }
+              onBlur={() => saveRoutingSetting(routingSetting)}
               disabled={saving}
+              style={{ width: 100 }}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="settings-card">
         <h3 className="settings-card__title">Summary Findings Pages</h3>
@@ -1130,37 +1001,10 @@ export default function SettingsPage() {
         </div>
 
         <div className="settings-section">
-          <label className="form-label">AI Analysis Model</label>
-          <p className="settings-hint">
-            Model used to summarize repo review summaries into common incidents
-            and anti-patterns. Runs only when the "Generate AI Analysis" action
-            is triggered (incurs model cost).
-          </p>
-          <select
-            className="form-input"
-            value={summarySetting?.analysisModel ?? ""}
-            onChange={(e) => {
-              if (!summarySetting) return;
-              saveSummarySetting({
-                ...summarySetting,
-                analysisModel: e.target.value,
-              });
-            }}
-            disabled={saving || !summarySetting}
-            style={{ maxWidth: 280 }}
-          >
-            {BEDROCK_MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="settings-section">
           <label className="form-label">AI Analysis Prompt Template</label>
           <p className="settings-hint">
-            Template variables: {"{{repoCount}}"}, {"{{typeDescription}}"}, {"{{summaries}}"}
+            Template variables: {"{{repoCount}}"}, {"{{typeDescription}}"}, {"{{summaries}}"}.
+            The model is the "Confluence findings summary" workload under Models.
           </p>
           <textarea
             className="form-input"
@@ -1205,7 +1049,7 @@ export default function SettingsPage() {
               <div className="settings-analysis-result__meta">
                 Generated {new Date(summarySetting.piiAnalysis.generatedAt).toLocaleString()} &middot;{" "}
                 {summarySetting.piiAnalysis.repoCount} repos &middot;{" "}
-                {BEDROCK_MODELS.find((m) => m.id === summarySetting.piiAnalysis?.model)?.label ?? summarySetting.piiAnalysis.model}
+                {modelLabel(summarySetting.piiAnalysis.model)}
               </div>
             ) : (
               <div className="settings-analysis-result__meta">Not generated yet</div>
@@ -1232,7 +1076,7 @@ export default function SettingsPage() {
               <div className="settings-analysis-result__meta">
                 Generated {new Date(summarySetting.performanceAnalysis.generatedAt).toLocaleString()} &middot;{" "}
                 {summarySetting.performanceAnalysis.repoCount} repos &middot;{" "}
-                {BEDROCK_MODELS.find((m) => m.id === summarySetting.performanceAnalysis?.model)?.label ?? summarySetting.performanceAnalysis.model}
+                {modelLabel(summarySetting.performanceAnalysis.model)}
               </div>
             ) : (
               <div className="settings-analysis-result__meta">Not generated yet</div>
@@ -1514,24 +1358,6 @@ export default function SettingsPage() {
           />
         </div>
 
-
-        <div className="settings-section">
-          <label className="form-label">Review Model</label>
-          <select
-            className="form-input"
-            value={commitReviewSetting?.model ?? ""}
-            onChange={(e) => {
-              if (commitReviewSetting) {
-                saveCommitReviewSetting({ ...commitReviewSetting, model: e.target.value });
-              }
-            }}
-            style={{ maxWidth: 400 }}
-          >
-            {BEDROCK_MODELS.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {error && <div className="settings-error">{error}</div>}

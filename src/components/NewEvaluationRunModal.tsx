@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getLlmWorkloads } from "../api/jobApi";
 import type {
   DatasetSummary,
   EvaluatedStage,
   StartRunParams,
 } from "../types/job.types";
+import type { LlmModel, LlmWorkload, RouterOverride } from "../types/llm.types";
 import "./Modal.css";
 import "./EvaluationModals.css";
 
@@ -14,12 +16,8 @@ const ALL_STAGES: EvaluatedStage[] = [
   "scan_summary",
 ];
 
-const MODEL_ROLES = [
-  "piModel",
-  "inventoryModel",
-  "reviewModel",
-  "summaryModel",
-] as const;
+/** Workloads an evaluation run can override: each stage's own, and the judge's. */
+const JUDGE_TASK = "eval_judge";
 
 const DEFAULT_CONCURRENCY = 3;
 const MAX_CONCURRENCY = 10;
@@ -39,7 +37,38 @@ export default function NewEvaluationRunModal({
   const [label, setLabel] = useState("");
   const [stages, setStages] = useState<EvaluatedStage[]>(ALL_STAGES);
   const [concurrency, setConcurrency] = useState(DEFAULT_CONCURRENCY);
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [overrides, setOverrides] = useState<Record<string, RouterOverride>>({});
+  const [workloads, setWorkloads] = useState<LlmWorkload[]>([]);
+  const [models, setModels] = useState<LlmModel[]>([]);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getLlmWorkloads()
+      .then((data) => {
+        setWorkloads(data.workloads);
+        setModels(data.models);
+      })
+      .catch((err: Error) => setModelsError(err.message));
+  }, []);
+
+  const labelOf = (id: string | null) =>
+    id ? (models.find((m) => m.id === id)?.label ?? id) : "—";
+  const currentModel = (task: string): string => {
+    const w = workloads.find((x) => x.task === task);
+    if (!w) return "policy";
+    return w.mode === "fixed"
+      ? `${labelOf(w.model)}${w.effort ? ` (${w.effort})` : ""}`
+      : `${w.mode}: ${w.tiers.map((t) => labelOf(t.model)).join(" / ")}`;
+  };
+  const overridable = [...ALL_STAGES.filter((s) => stages.includes(s)), JUDGE_TASK];
+
+  const setOverride = (task: string, override: RouterOverride | null) =>
+    setOverrides((current) => {
+      const next = { ...current };
+      if (override) next[task] = override;
+      else delete next[task];
+      return next;
+    });
 
   const toggleStage = (stage: EvaluatedStage) => {
     setStages((current) =>
@@ -50,8 +79,9 @@ export default function NewEvaluationRunModal({
   };
 
   const submit = () => {
+    // Only the stages that run, and the judge
     const modelOverrides = Object.fromEntries(
-      Object.entries(overrides).filter(([, value]) => value.trim()),
+      Object.entries(overrides).filter(([task]) => overridable.includes(task)),
     );
     onSubmit({
       datasetId,
@@ -146,24 +176,54 @@ export default function NewEvaluationRunModal({
           <fieldset className="eval-field">
             <legend>Model overrides</legend>
             <p className="eval-hint">
-              Leave blank to use the global routing setting. Overrides apply to
-              this run only.
+              Models for this run only; the production policies (Settings → Models)
+              are not changed. "Policy" uses the workload's current policy.
             </p>
-            {MODEL_ROLES.map((role) => (
-              <label key={role} className="eval-field eval-field--inline">
-                <span>{role}</span>
-                <input
-                  value={overrides[role] ?? ""}
-                  placeholder="inherit"
-                  onChange={(event) =>
-                    setOverrides((current) => ({
-                      ...current,
-                      [role]: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-            ))}
+            {modelsError && <p className="eval-hint">Could not load models: {modelsError}</p>}
+            {overridable.map((task) => {
+              const override = overrides[task];
+              const levels = models.find((m) => m.id === override?.model)?.effortLevels ?? [];
+              const label =
+                task === JUDGE_TASK
+                  ? "judge"
+                  : (workloads.find((w) => w.task === task)?.label ?? task.replace(/_/g, " "));
+              return (
+                <label key={task} className="eval-field eval-field--inline">
+                  <span>{label}</span>
+                  <select
+                    value={override?.model ?? ""}
+                    onChange={(event) =>
+                      setOverride(task, event.target.value ? { model: event.target.value } : null)
+                    }
+                  >
+                    <option value="">Policy — {currentModel(task)}</option>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  {override && levels.length > 0 && (
+                    <select
+                      value={override.effort ?? ""}
+                      onChange={(event) =>
+                        setOverride(task, {
+                          model: override.model,
+                          ...(event.target.value ? { effort: event.target.value } : {}),
+                        })
+                      }
+                    >
+                      <option value="">default effort</option>
+                      {levels.map((level) => (
+                        <option key={level} value={level}>
+                          {level}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+              );
+            })}
           </fieldset>
         </div>
 

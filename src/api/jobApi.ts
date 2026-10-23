@@ -39,6 +39,13 @@ import type {
   JobCostDetail,
   JobCostRow,
 } from "../types/cost.types";
+import type {
+  LlmModel,
+  LlmWorkload,
+  LlmWorkloads,
+  ModelProbeResult,
+  WorkloadSettings,
+} from "../types/llm.types";
 
 // Use a relative path so requests go through the Vite dev proxy (avoids SSL cert issues).
 // In production, set VITE_API_BASE_URL and remove the '/api' fallback as needed.
@@ -311,6 +318,37 @@ export async function updateSetting(
       method: "PUT",
       body: JSON.stringify({ value }),
     },
+  );
+  return res.data;
+}
+
+// --- LLM workloads (Settings → Models) ---
+
+export async function getLlmWorkloads(): Promise<LlmWorkloads> {
+  const res = await apiFetch<LlmWorkloads>("/llm/workloads");
+  return res.data;
+}
+
+export async function updateLlmWorkload(
+  task: string,
+  settings: WorkloadSettings,
+): Promise<LlmWorkload> {
+  const res = await apiFetch<LlmWorkload>(
+    `/llm/workloads/${encodeURIComponent(task)}`,
+    { method: "PUT", body: JSON.stringify(settings) },
+  );
+  return res.data;
+}
+
+export async function getLlmModels(): Promise<LlmModel[]> {
+  const res = await apiFetch<LlmModel[]>("/llm/models");
+  return res.data;
+}
+
+export async function probeLlmModel(id: string): Promise<ModelProbeResult> {
+  const res = await apiFetch<ModelProbeResult>(
+    `/llm/models/${encodeURIComponent(id)}/probe`,
+    { method: "POST" },
   );
   return res.data;
 }

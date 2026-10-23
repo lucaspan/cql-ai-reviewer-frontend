@@ -1,3 +1,5 @@
+import type { RouterOverride } from "./llm.types";
+
 export type JobStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
 export interface GithubReviewJob {
@@ -458,7 +460,8 @@ export interface EvaluationRun {
   id: string;
   datasetId: string;
   label: string | null;
-  modelConfig: Record<string, string>;
+  /** The run's overrides per workload task; older runs hold the old routing fields as strings. */
+  modelConfig: Record<string, unknown>;
   status: EvaluationRunStatus;
   error: string | null;
   totals: EvaluationRunTotals | null;
@@ -503,6 +506,7 @@ export interface StartRunParams {
   datasetId: string;
   label?: string;
   stages?: EvaluatedStage[];
-  modelOverrides?: Record<string, string>;
+  /** Per workload task (e.g. "security_scan", "eval_judge"), the model this run uses. */
+  modelOverrides?: Record<string, RouterOverride>;
   concurrency?: number;
 }
