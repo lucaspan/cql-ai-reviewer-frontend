@@ -281,7 +281,8 @@ export type ProjectKnowledgeStatus =
   | "pending"
   | "collecting"
   | "active"
-  | "failed";
+  | "failed"
+  | "needs_info";
 
 export interface ProjectKnowledge {
   id: string;
@@ -295,6 +296,108 @@ export interface ProjectKnowledge {
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Options of a security review run (POST /project/:id/security-review). */
+export interface SecurityReviewOptions {
+  maxTasks: number;
+  maxCostUsd: number;
+  includePerFlow: boolean;
+  verify: "all" | "high";
+  summarize: boolean;
+}
+
+export type SecurityReviewPhase = "planning" | "reviewing" | "chains" | "done" | "failed";
+
+export interface SecurityReviewFindingCounts {
+  total: number;
+  confirmed: number;
+  corrected: number;
+  rejected: number;
+  unverified: number;
+}
+
+export interface SecurityReviewTask {
+  id: string;
+  wave: 1 | 2;
+  focusArea: string;
+  title: string;
+  repos: string[];
+  paths: string[];
+  endpoints: string[];
+  flows: string[];
+  brief: string;
+  checks: Array<{ id: string; description: string }>;
+  knowledgeId: string | null;
+  status: Exclude<ProjectKnowledgeStatus, "needs_info">;
+  error?: string | null;
+  counts?: SecurityReviewFindingCounts;
+  checksAnswered?: number;
+  costUsd?: number;
+}
+
+export interface SecurityReviewChain {
+  title: string;
+  severity: string;
+  entryPoint: string;
+  impact: string;
+  narrative: string;
+  steps: Array<{ findingRef: string; role: string; title?: string; location?: string }>;
+}
+
+/** The value of a `security_review` knowledge entry. */
+export interface SecurityReviewValue {
+  options?: SecurityReviewOptions;
+  runId?: string | null;
+  phase?: SecurityReviewPhase | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  planSummary?: string | null;
+  tasks?: SecurityReviewTask[];
+  perFlow?: { total: number; done: number; failed: number; findings: number } | null;
+  coverage?: CoverageRow[];
+  chains?: SecurityReviewChain[];
+  chainSummary?: string | null;
+  spentUsd?: number;
+  notes?: string[];
+}
+
+/** Per repository: source files, how many an agent opened, and the largest unread directories. */
+export interface CoverageRow {
+  repo: string;
+  sourceFiles: number;
+  filesRead: number;
+  unreadDirs: Array<{ dir: string; sourceFiles: number }>;
+}
+
+/** Options of a gap analysis (POST /project/:id/gap-analysis). */
+export interface GapAnalysisOptions {
+  maxRounds: number;
+  maxTasksPerRound: number;
+  maxCostUsd: number;
+  verify: "all" | "high";
+  summarize: boolean;
+}
+
+export type GapAnalysisPhase = "planning" | "reviewing" | "chains" | "done" | "failed";
+
+/** The value of a `gap_analysis` knowledge entry. */
+export interface GapAnalysisValue {
+  options?: GapAnalysisOptions;
+  runId?: string | null;
+  /** The review run it built on; its results stop counting once a newer review runs. */
+  baseRunId?: string | null;
+  phase?: GapAnalysisPhase | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  rounds?: Array<{ round: number; summary: string; taskIds: string[] }>;
+  tasks?: SecurityReviewTask[];
+  coverageBefore?: CoverageRow[];
+  coverage?: CoverageRow[];
+  chains?: SecurityReviewChain[];
+  chainSummary?: string | null;
+  spentUsd?: number;
+  notes?: string[];
 }
 
 export interface ProjectKnowledgeActivity {

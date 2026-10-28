@@ -74,7 +74,7 @@ export default function ActivityModal({
                     </span>
                   </div>
                   <p className="activity-item__message">{activity.message}</p>
-                  {activity.metadata && (
+                  {activity.metadata != null && (
                     <pre className="activity-item__metadata">
                       {JSON.stringify(activity.metadata, null, 2)}
                     </pre>

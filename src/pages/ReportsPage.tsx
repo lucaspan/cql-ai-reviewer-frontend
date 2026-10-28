@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getReportViewPaginated, getJobTypes, dismissFinding, reactivateFinding } from "../api/jobApi";
+import { getReportViewPaginated, getJobTypes, dismissFinding } from "../api/jobApi";
 import type { ReportView } from "../api/jobApi";
 import type { ReviewJobType } from "../types/job.types";
 import type {

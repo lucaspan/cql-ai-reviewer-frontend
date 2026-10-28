@@ -80,7 +80,9 @@ export default function ModelsSettings() {
         Every LLM call goes through the LLM router. Each workload has its own
         policy: a fixed model, or dynamic routing between tiers. Changes apply to
         the next request within 30 seconds, also in agents that are already
-        running (their prompt cache is rebuilt once on the new model).
+        running (their prompt cache is rebuilt once on the new model). A running
+        agent whose context is too large for the new model stays on the
+        fallback.
       </p>
 
       {error && (

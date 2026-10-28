@@ -37,6 +37,8 @@ interface JobCreationSetting {
 // Stored as MODEL_ROUTING_SETTING; models are per-workload router policies (Models card)
 interface ModelRoutingSetting {
   piTimeoutMinutes: number;
+  /** Agent sessions that may run at once per backend process; background work waits, PR reviews don't. */
+  maxConcurrentAgents: number;
 }
 
 interface FindingsAnalysisValue {
@@ -933,21 +935,26 @@ export default function SettingsPage() {
           Limits for the pi review agents. Their models are set per workload under Models.
         </p>
         {routingSetting && (
-          <div className="settings-add-row">
-            <span style={{ minWidth: 140, fontSize: 13 }}>Timeout (minutes)</span>
-            <input
-              className="form-input"
-              type="number"
-              min={1}
+          <>
+            <PositiveNumberRow
+              key={`timeout-${routingSetting.piTimeoutMinutes}`}
+              label="Timeout (minutes)"
+              hint="An agent session that runs longer is stopped."
               value={routingSetting.piTimeoutMinutes}
-              onChange={(e) =>
-                setRoutingSetting({ ...routingSetting, piTimeoutMinutes: Number(e.target.value) })
-              }
-              onBlur={() => saveRoutingSetting(routingSetting)}
+              max={1440}
               disabled={saving}
-              style={{ width: 100 }}
+              onSave={(v) => saveRoutingSetting({ ...routingSetting, piTimeoutMinutes: v })}
             />
-          </div>
+            <PositiveNumberRow
+              key={`agents-${routingSetting.maxConcurrentAgents}`}
+              label="Agents at once"
+              hint="Agent sessions that may run at the same time on each backend process. Scans, security reviews and threat modeling wait for a free slot; PR and commit reviews start at once but count toward it. Keeps parallel work under Bedrock's tokens-per-minute quota."
+              value={routingSetting.maxConcurrentAgents ?? 3}
+              max={50}
+              disabled={saving}
+              onSave={(v) => saveRoutingSetting({ ...routingSetting, maxConcurrentAgents: v })}
+            />
+          </>
         )}
       </div>
 
@@ -1362,6 +1369,59 @@ export default function SettingsPage() {
 
       {error && <div className="settings-error">{error}</div>}
       {saved && <div className="settings-saved">Saved</div>}
+    </div>
+  );
+}
+
+/** A whole number ≥ 1, saved on blur; an empty or invalid entry goes back to the saved value. */
+function PositiveNumberRow({
+  label,
+  hint,
+  value,
+  max,
+  disabled,
+  onSave,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  max: number;
+  disabled: boolean;
+  onSave: (value: number) => void;
+}) {
+  // The parent keys this row by `value`, so a saved change starts a fresh draft
+  const [draft, setDraft] = useState(String(value));
+  const [invalid, setInvalid] = useState(false);
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isInteger(n) || n < 1 || n > max) {
+      setInvalid(true);
+      setDraft(String(value));
+      return;
+    }
+    setInvalid(false);
+    if (n !== value) onSave(n);
+  };
+  return (
+    <div className="settings-section" style={{ marginTop: 8, paddingTop: 8 }}>
+      <div className="settings-add-row" style={{ marginBottom: 0 }}>
+        <span style={{ minWidth: 140, fontSize: 13 }}>{label}</span>
+        <input
+          className="form-input"
+          type="number"
+          min={1}
+          max={max}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && commit()}
+          disabled={disabled}
+          style={{ width: 100 }}
+        />
+      </div>
+      <p className="settings-hint" style={{ color: invalid ? "#dc2626" : undefined }}>
+        {invalid ? `Enter a whole number from 1 to ${max}.` : hint}
+      </p>
     </div>
   );
 }

@@ -32,6 +32,8 @@ import type {
   EvaluationComparison,
   StartRunParams,
   PaginationMeta,
+  SecurityReviewOptions,
+  GapAnalysisOptions,
 } from "../types/job.types";
 import type {
   CostJobKind,
@@ -337,6 +339,12 @@ export async function updateLlmWorkload(
     `/llm/workloads/${encodeURIComponent(task)}`,
     { method: "PUT", body: JSON.stringify(settings) },
   );
+  return res.data;
+}
+
+/** Agent sessions running and waiting for a slot in the backend process that answers. */
+export async function getAgentSlots(): Promise<{ running: number; waiting: number; limit: number }> {
+  const res = await apiFetch<{ running: number; waiting: number; limit: number }>("/llm/agents");
   return res.data;
 }
 
@@ -911,6 +919,28 @@ export async function startAllSecurityScans(
   const res = await apiFetch<{ started: number }>(
     `/project/${encodeURIComponent(projectId)}/knowledge/security-scans/start-all`,
     { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function startSecurityReview(
+  projectId: string,
+  options: Partial<SecurityReviewOptions>,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/security-review`,
+    { method: "POST", body: JSON.stringify(options) },
+  );
+  return res.data;
+}
+
+export async function startGapAnalysis(
+  projectId: string,
+  options: Partial<GapAnalysisOptions>,
+): Promise<ProjectKnowledge> {
+  const res = await apiFetch<ProjectKnowledge>(
+    `/project/${encodeURIComponent(projectId)}/gap-analysis`,
+    { method: "POST", body: JSON.stringify(options) },
   );
   return res.data;
 }

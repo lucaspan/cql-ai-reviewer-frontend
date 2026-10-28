@@ -71,7 +71,7 @@ export default function CaptureDatasetModal({
   const canSubmit = projectId && idValid && description.trim() && !loading;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal eval-modal"
         onClick={(event) => event.stopPropagation()}

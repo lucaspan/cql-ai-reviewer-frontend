@@ -986,7 +986,6 @@ function CommitReviewJobTypes({ showToast }: { showToast: (msg: string, type: "s
 
 function CommitReviewVersionsView({
   typeName,
-  typeId,
   versions,
   loading,
   onBack,

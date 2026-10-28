@@ -43,7 +43,7 @@ export default function EvaluationComparePanel({ comparison, onClose }: Props) {
   const regressions = stages.filter((stage) => (stage.f1Delta ?? 0) < 0);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal eval-modal eval-modal--wide"
         onClick={(e) => e.stopPropagation()}

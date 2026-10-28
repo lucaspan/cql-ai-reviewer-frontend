@@ -95,7 +95,7 @@ export default function NewEvaluationRunModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal eval-modal"
         onClick={(event) => event.stopPropagation()}

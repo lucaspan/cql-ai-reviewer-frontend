@@ -89,7 +89,7 @@ export default function EvaluationRunDetailPanel({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal eval-modal eval-modal--wide"
         onClick={(e) => e.stopPropagation()}
