@@ -9,14 +9,29 @@ import type { LlmModel, LlmWorkload, RouterOverride } from "../types/llm.types";
 import "./Modal.css";
 import "./EvaluationModals.css";
 
-const ALL_STAGES: EvaluatedStage[] = [
-  "endpoint_inventory",
-  "threat_map",
-  "security_scan",
-  "scan_summary",
-];
+const ALL_STAGES: EvaluatedStage[] = ["endpoint_inventory", "threat_map", "security_analysis"];
 
-/** Workloads an evaluation run can override: each stage's own, and the judge's. */
+/** The router workloads each stage runs (the backend's STAGE_WORKLOADS). */
+const STAGE_WORKLOADS: Record<EvaluatedStage, string[]> = {
+  endpoint_inventory: ["endpoint_inventory"],
+  threat_map: ["threat_map"],
+  security_analysis: [
+    "security_scan",
+    "security_review_plan",
+    "security_review",
+    "security_verify",
+    "scan_summary",
+  ],
+};
+
+const STAGE_HINTS: Record<EvaluatedStage, string> = {
+  endpoint_inventory: "Endpoint inventories from the repo profiles",
+  threat_map: "The threat map from the golden inventories",
+  security_analysis:
+    "Per-flow scans, security review, gap analysis and the findings summary, on the golden threat map; scored on the findings list",
+};
+
+/** Workloads an evaluation run can override: the ones its stages run, and the judge's. */
 const JUDGE_TASK = "eval_judge";
 
 const DEFAULT_CONCURRENCY = 3;
@@ -60,7 +75,10 @@ export default function NewEvaluationRunModal({
       ? `${labelOf(w.model)}${w.effort ? ` (${w.effort})` : ""}`
       : `${w.mode}: ${w.tiers.map((t) => labelOf(t.model)).join(" / ")}`;
   };
-  const overridable = [...ALL_STAGES.filter((s) => stages.includes(s)), JUDGE_TASK];
+  const overridable = [
+    ...ALL_STAGES.filter((s) => stages.includes(s)).flatMap((s) => STAGE_WORKLOADS[s]),
+    JUDGE_TASK,
+  ];
 
   const setOverride = (task: string, override: RouterOverride | null) =>
     setOverrides((current) => {
@@ -135,7 +153,7 @@ export default function NewEvaluationRunModal({
             <legend>Stages</legend>
             <div className="eval-chips">
               {ALL_STAGES.map((stage) => (
-                <label key={stage} className="eval-chip">
+                <label key={stage} className="eval-chip" title={STAGE_HINTS[stage]}>
                   <input
                     type="checkbox"
                     checked={stages.includes(stage)}
@@ -167,9 +185,11 @@ export default function NewEvaluationRunModal({
               }
             />
             <span className="eval-hint">
-              Agents running at once within a stage. Each one clones a repo and
-              runs its own agent, so raising this multiplies CPU, disk and
-              rate-limit pressure.
+              Collections started at once within a stage (for security analysis,
+              its per-flow scans). Each one clones a repo and runs its own agent;
+              the server's Agents at once setting still caps the total. The
+              security analysis runs the whole pipeline, so it is the slow and
+              costly stage.
             </span>
           </label>
 

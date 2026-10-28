@@ -4,15 +4,13 @@ import type { Project, ProjectKnowledge } from "../types/job.types";
 import "./Modal.css";
 import "./EvaluationModals.css";
 
-/** Frozen upstream input. Without these the dataset cannot pin the Dynatrace-derived state. */
+/** Frozen upstream input: the Dynatrace-derived state, for projects that use Dynatrace. */
 const REQUIRED_TYPES = ["service_mapping", "runtime_topology"];
-/** Scored stages. A dataset with none of these has nothing to compare a run against. */
-const EXPECTED_TYPES = [
-  "endpoint_inventory",
-  "threat_map",
-  "security_scan",
-  "scan_summary",
-];
+/**
+ * What the scored stages compare against: the inventories, the threat map, and the findings
+ * list the findings summary wrote (the security analysis's expected findings).
+ */
+const EXPECTED_TYPES = ["endpoint_inventory", "threat_map", "scan_summary"];
 
 const DATASET_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/i;
 
@@ -103,22 +101,25 @@ export default function CaptureDatasetModal({
           {knowledge !== null && !loading && (
             <>
               {missingRequired.length > 0 && (
-                <p className="eval-error">
-                  Missing active {missingRequired.join(" and ")}. These carry
-                  the Dynatrace data the dataset needs to freeze — capture now
-                  and runs will have no pinned runtime state. Collect them
-                  first.
-                </p>
-              )}
-              {missingRequired.length === 0 && missingExpected.length > 0 && (
                 <p className="eval-hint eval-hint--warn">
-                  No active {missingExpected.join(", ")}. Those stages will have
-                  empty expectations and always score 0.
+                  No active {missingRequired.join(" or ")}. Fine for a project
+                  without Dynatrace; otherwise collect them first so runs have
+                  the runtime state pinned.
                 </p>
               )}
-              {missingRequired.length === 0 && missingExpected.length === 0 && (
+              {missingExpected.length > 0 && (
+                <p className="eval-hint eval-hint--warn">
+                  No active {missingExpected.join(", ")}.
+                  {missingExpected.includes("scan_summary")
+                    ? " Without a findings summary there is no findings list, so the security analysis has nothing to score against."
+                    : " Those stages will have empty expectations and always score 0."}
+                </p>
+              )}
+              {missingExpected.length === 0 && (
                 <p className="eval-hint">
-                  All stages have active knowledge — good to capture.
+                  Ready to capture. The open and confirmed findings become the
+                  expected findings, so dismiss false ones on the project's
+                  Findings tab first.
                 </p>
               )}
 
@@ -149,7 +150,7 @@ export default function CaptureDatasetModal({
             <span>Dataset ID</span>
             <input
               value={datasetId}
-              placeholder="launch-2026-10"
+              placeholder="moment-2026-10"
               onChange={(event) => setDatasetId(event.target.value)}
             />
             {datasetId && !idValid && (
@@ -176,15 +177,16 @@ export default function CaptureDatasetModal({
               onChange={(event) => setFlowSubset(event.target.value)}
             />
             <span className="eval-hint">
-              Limits the security_scan fan-out. Leave blank to scan every data
-              flow — accurate but slow and expensive.
+              Limits the per-flow scans to these flows. The review and gap
+              analysis always cover the whole application. Leave blank to scan
+              every flow.
             </span>
           </label>
         </div>
 
         <footer className="modal__footer">
           <span className="eval-hint">
-            Writes a manifest to the repo for PR review.
+            Writes datasets/&lt;id&gt;/manifest.json to the repo for PR review.
           </span>
           <div className="eval-footer-actions">
             <button className="eval-btn eval-btn--ghost" onClick={onClose}>

@@ -75,6 +75,9 @@ export function formatDate(iso: string | null): string {
 
 const KNOWLEDGE_TYPE_LABEL: Record<string, string> = {
   security_scan: "Security scan",
+  security_review: "Security review",
+  gap_analysis: "Gap analysis",
+  pentest_swarm: "Pentest swarm",
   threat_map: "Threat map",
   endpoint_inventory: "Endpoint inventory",
   repo_profile: "Repo profile",

@@ -484,11 +484,11 @@ export interface AppCatPermission {
 
 // --- Golden dataset evaluation ---
 
-export type EvaluatedStage =
-  | "endpoint_inventory"
-  | "threat_map"
-  | "security_scan"
-  | "scan_summary";
+/**
+ * security_analysis is the whole security pipeline (per-flow scans, security review, gap
+ * analysis, findings summary), scored on the findings list it ends with.
+ */
+export type EvaluatedStage = "endpoint_inventory" | "threat_map" | "security_analysis";
 
 export type EvaluationRunStatus =
   | "pending"
