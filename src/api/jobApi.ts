@@ -348,6 +348,19 @@ export async function getAgentSlots(): Promise<{ running: number; waiting: numbe
   return res.data;
 }
 
+/** Unified agent-work queue depth (fleet-wide): running / queued / blocked, and the concurrency cap. */
+export async function getAgentWorkQueue(): Promise<{
+  running: number;
+  queued: number;
+  blocked: number;
+  limit: number;
+}> {
+  const res = await apiFetch<{ running: number; queued: number; blocked: number; limit: number }>(
+    "/agent-work",
+  );
+  return res.data;
+}
+
 export async function getLlmModels(): Promise<LlmModel[]> {
   const res = await apiFetch<LlmModel[]>("/llm/models");
   return res.data;

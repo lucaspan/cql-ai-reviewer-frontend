@@ -22,6 +22,7 @@ import Pagination from "../components/Pagination";
 import ActivityModal from "../components/ActivityModal";
 import CreateJobModal from "../components/CreateJobModal";
 import ProcessJobModal from "../components/ProcessJobModal";
+import AgentQueueStatus from "../components/AgentQueueStatus";
 import JobDetailModal from "../components/JobDetailModal";
 import BatchCreateJobModal from "../components/BatchCreateJobModal";
 import FollowUpModal from "../components/FollowUpModal";
@@ -371,6 +372,7 @@ export default function JobsPage() {
           </div>
 
           <div className="toolbar__actions">
+            <AgentQueueStatus />
             <button
               className="btn btn--secondary btn--icon"
               onClick={fetchJobs}
