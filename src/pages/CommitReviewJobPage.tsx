@@ -275,7 +275,7 @@ export default function CommitReviewJobPage({ initialJobId }: { initialJobId?: s
     try {
       await processCommitReviewJob(id);
       load();
-      if (detailJob?.id === id) handleViewDetail({ ...detailJob, status: "IN_PROGRESS" });
+      if (detailJob?.id === id) handleViewDetail({ ...detailJob, status: "QUEUED" });
     } catch {
       // silent
     } finally {
@@ -326,6 +326,7 @@ export default function CommitReviewJobPage({ initialJobId }: { initialJobId?: s
         >
           <option value="">All statuses</option>
           <option value="PENDING">PENDING</option>
+          <option value="QUEUED">QUEUED</option>
           <option value="IN_PROGRESS">IN_PROGRESS</option>
           <option value="COMPLETED">COMPLETED</option>
           <option value="FAILED">FAILED</option>

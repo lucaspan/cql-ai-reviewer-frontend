@@ -317,6 +317,7 @@ export default function JobsPage({ initialJobId }: { initialJobId?: string }) {
               >
                 <option value="">All</option>
                 <option value="PENDING">Pending</option>
+                <option value="QUEUED">Queued</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="FAILED">Failed</option>
