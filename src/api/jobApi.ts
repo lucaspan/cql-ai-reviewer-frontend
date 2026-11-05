@@ -585,9 +585,9 @@ export async function processCommitReviewJob(
 
 export async function processPendingCommitReviewJob(): Promise<{
   processed: boolean;
-  jobId?: string;
+  enqueued: number;
 }> {
-  const res = await apiFetch<{ processed: boolean; jobId?: string }>(
+  const res = await apiFetch<{ processed: boolean; enqueued: number }>(
     "/commit-review-job/process-pending",
     {
       method: "POST",

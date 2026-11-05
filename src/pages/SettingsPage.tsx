@@ -39,6 +39,10 @@ interface ModelRoutingSetting {
   piTimeoutMinutes: number;
   /** Agent sessions that may run at once per backend process; background work waits, PR reviews don't. */
   maxConcurrentAgents: number;
+  /** Master switch for the unified agent-work dispatcher. Off ⇒ reviews enqueue but never run. */
+  queueDispatchEnabled?: boolean;
+  /** Count the agents-at-once cap in Postgres (fleet-global across tasks) instead of per-process. */
+  globalAgentSlots?: boolean;
 }
 
 interface FindingsAnalysisValue {
@@ -564,7 +568,7 @@ export default function SettingsPage() {
           />
           <ToggleRow
             label="Pending Job Crawler"
-            description="Automatically process pending jobs"
+            description="Auto-enqueue pending jobs onto the agent-work queue (they run only when the Queue Dispatcher is on)"
             checked={setting?.crawlers.pendingJobCrawlerEnabled ?? false}
             onChange={() => handleToggle("pendingJobCrawlerEnabled")}
             disabled={saving || !setting?.enabled}
@@ -954,6 +958,32 @@ export default function SettingsPage() {
               disabled={saving}
               onSave={(v) => saveRoutingSetting({ ...routingSetting, maxConcurrentAgents: v })}
             />
+            <div className="settings-toggles">
+              <ToggleRow
+                label="Queue Dispatcher"
+                description="Runs enqueued github/commit reviews under the global cap. Off ⇒ reviews are queued but never run (they stay pending)."
+                checked={routingSetting.queueDispatchEnabled ?? false}
+                onChange={() =>
+                  saveRoutingSetting({
+                    ...routingSetting,
+                    queueDispatchEnabled: !routingSetting.queueDispatchEnabled,
+                  })
+                }
+                disabled={saving}
+              />
+              <ToggleRow
+                label="Fleet-global agent limit"
+                description="Count the agents-at-once cap in Postgres across all backend tasks, not per-process. Enable only after the DB migration has run."
+                checked={routingSetting.globalAgentSlots ?? false}
+                onChange={() =>
+                  saveRoutingSetting({
+                    ...routingSetting,
+                    globalAgentSlots: !routingSetting.globalAgentSlots,
+                  })
+                }
+                disabled={saving}
+              />
+            </div>
           </>
         )}
       </div>
@@ -1329,7 +1359,7 @@ export default function SettingsPage() {
         <div className="toggle-row">
           <div className="toggle-row__text">
             <span className="toggle-row__label">Processor Enabled</span>
-            <span className="toggle-row__desc">Auto-process PENDING jobs every 30s (clone repo, fetch diff, call LLM)</span>
+            <span className="toggle-row__desc">Auto-enqueue PENDING commit jobs onto the agent-work queue every 30s (they run only when the Queue Dispatcher is on)</span>
           </div>
           <button
             className={`toggle-switch ${commitReviewSetting?.processorEnabled ? "toggle-switch--on" : ""}`}

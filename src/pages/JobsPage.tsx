@@ -166,7 +166,7 @@ export default function JobsPage() {
       const result = await processPendingJob();
       showToast(
         result.processed
-          ? `Processed job ${result.jobId}`
+          ? `Enqueued ${result.enqueued ?? 0} pending job(s) for review`
           : "No pending jobs found",
         result.processed ? "success" : "info",
       );
@@ -252,7 +252,7 @@ export default function JobsPage() {
     try {
       const result = await processJobById(processJobId, mode);
       showToast(
-        result.processed ? `Job processed` : "Job not found or not processable",
+        result.processed ? `Job queued for review` : "Job not found or not processable",
         result.processed ? "success" : "error",
       );
       if (result.processed) {
