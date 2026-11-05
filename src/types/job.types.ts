@@ -1,6 +1,6 @@
 import type { RouterOverride } from "./llm.types";
 
-export type JobStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
+export type JobStatus = "PENDING" | "QUEUED" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
 export interface GithubReviewJob {
   id: string;

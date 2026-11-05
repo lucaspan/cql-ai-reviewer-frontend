@@ -68,7 +68,7 @@ export default function AgentsPage({
                     {item.status === "running" ? (
                       <span className="status-badge status-badge--in_progress">In progress</span>
                     ) : (
-                      <span className="status-badge status-badge--pending">Queued</span>
+                      <span className="status-badge status-badge--queued">Queued</span>
                     )}
                   </td>
                   <td>{item.startedAt ? new Date(item.startedAt).toLocaleString() : "—"}</td>
