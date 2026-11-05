@@ -37,12 +37,8 @@ interface JobCreationSetting {
 // Stored as MODEL_ROUTING_SETTING; models are per-workload router policies (Models card)
 interface ModelRoutingSetting {
   piTimeoutMinutes: number;
-  /** Agent sessions that may run at once per backend process; background work waits, PR reviews don't. */
+  /** Agent sessions that may run at once across all backend processes; background work waits, PR reviews don't. */
   maxConcurrentAgents: number;
-  /** Master switch for the unified agent-work dispatcher. Off ⇒ reviews enqueue but never run. */
-  queueDispatchEnabled?: boolean;
-  /** Count the agents-at-once cap in Postgres (fleet-global across tasks) instead of per-process. */
-  globalAgentSlots?: boolean;
 }
 
 interface FindingsAnalysisValue {
@@ -568,7 +564,7 @@ export default function SettingsPage() {
           />
           <ToggleRow
             label="Pending Job Crawler"
-            description="Auto-enqueue pending jobs onto the agent-work queue (they run only when the Queue Dispatcher is on)"
+            description="Automatically queue pending jobs to run"
             checked={setting?.crawlers.pendingJobCrawlerEnabled ?? false}
             onChange={() => handleToggle("pendingJobCrawlerEnabled")}
             disabled={saving || !setting?.enabled}
@@ -952,38 +948,12 @@ export default function SettingsPage() {
             <PositiveNumberRow
               key={`agents-${routingSetting.maxConcurrentAgents}`}
               label="Agents at once"
-              hint="Agent sessions that may run at the same time on each backend process. Scans, security reviews and threat modeling wait for a free slot; PR and commit reviews start at once but count toward it. Keeps parallel work under Bedrock's tokens-per-minute quota."
+              hint="Agent sessions that may run at the same time across all backend processes. Scans, security reviews and threat modeling wait for a free slot; PR and commit reviews start at once but count toward it. Keeps parallel work under Bedrock's tokens-per-minute quota."
               value={routingSetting.maxConcurrentAgents ?? 3}
               max={50}
               disabled={saving}
               onSave={(v) => saveRoutingSetting({ ...routingSetting, maxConcurrentAgents: v })}
             />
-            <div className="settings-toggles">
-              <ToggleRow
-                label="Queue Dispatcher"
-                description="Runs enqueued github/commit reviews under the global cap. Off ⇒ reviews are queued but never run (they stay pending)."
-                checked={routingSetting.queueDispatchEnabled ?? false}
-                onChange={() =>
-                  saveRoutingSetting({
-                    ...routingSetting,
-                    queueDispatchEnabled: !routingSetting.queueDispatchEnabled,
-                  })
-                }
-                disabled={saving}
-              />
-              <ToggleRow
-                label="Fleet-global agent limit"
-                description="Count the agents-at-once cap in Postgres across all backend tasks, not per-process. Enable only after the DB migration has run."
-                checked={routingSetting.globalAgentSlots ?? false}
-                onChange={() =>
-                  saveRoutingSetting({
-                    ...routingSetting,
-                    globalAgentSlots: !routingSetting.globalAgentSlots,
-                  })
-                }
-                disabled={saving}
-              />
-            </div>
           </>
         )}
       </div>
@@ -1359,7 +1329,7 @@ export default function SettingsPage() {
         <div className="toggle-row">
           <div className="toggle-row__text">
             <span className="toggle-row__label">Processor Enabled</span>
-            <span className="toggle-row__desc">Auto-enqueue PENDING commit jobs onto the agent-work queue every 30s (they run only when the Queue Dispatcher is on)</span>
+            <span className="toggle-row__desc">Automatically queue PENDING commit jobs to run, every 30s</span>
           </div>
           <button
             className={`toggle-switch ${commitReviewSetting?.processorEnabled ? "toggle-switch--on" : ""}`}
