@@ -1,4 +1,5 @@
 import type {
+  AgentOverview,
   GithubReviewJob,
   GithubReviewJobActivity,
   JDevApiResponse,
@@ -342,22 +343,9 @@ export async function updateLlmWorkload(
   return res.data;
 }
 
-/** Agent sessions running and waiting for a slot in the backend process that answers. */
-export async function getAgentSlots(): Promise<{ running: number; waiting: number; limit: number }> {
-  const res = await apiFetch<{ running: number; waiting: number; limit: number }>("/llm/agents");
-  return res.data;
-}
-
-/** Unified agent-work queue depth (fleet-wide): running / queued / blocked, and the concurrency cap. */
-export async function getAgentWorkQueue(): Promise<{
-  running: number;
-  queued: number;
-  blocked: number;
-  limit: number;
-}> {
-  const res = await apiFetch<{ running: number; queued: number; blocked: number; limit: number }>(
-    "/agent-work",
-  );
+/** Agent counts, and every review and knowledge item in progress or queued. */
+export async function getAgentOverview(): Promise<AgentOverview> {
+  const res = await apiFetch<AgentOverview>("/agent-work");
   return res.data;
 }
 

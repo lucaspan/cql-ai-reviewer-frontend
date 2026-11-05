@@ -23,15 +23,12 @@ export function SecurityReviewSection({
   hasRepos,
   refresh,
   setViewingKnowledgeId,
-  agentLine,
 }: {
   projectId: string;
   knowledge: ProjectKnowledge[];
   hasRepos: boolean;
   refresh: () => Promise<void>;
   setViewingKnowledgeId: (id: string | null) => void;
-  /** "3 agents running, 9 waiting for a slot", while anything is collecting. */
-  agentLine: string | null;
 }) {
   const run = knowledge.find((k) => k.knowledgeType === "security_review");
   const value = (run?.value ?? {}) as SecurityReviewValue;
@@ -213,7 +210,6 @@ export function SecurityReviewSection({
               Spent {formatUsd(value.spentUsd)} of ${value.options?.maxCostUsd ?? "?"}
             </span>
             <span>{tasks.length} task(s)</span>
-            {running && agentLine && <span className="pj-muted">{agentLine}</span>}
             <span style={{ color: "#dc2626" }}>{kept} kept finding(s)</span>
             {rejected > 0 && <span className="pj-muted">{rejected} rejected by verifiers</span>}
             {value.perFlow && (

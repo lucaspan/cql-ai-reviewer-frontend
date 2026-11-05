@@ -83,7 +83,7 @@ interface SourceCommit {
   filesChanged: number;
 }
 
-export default function CommitReviewJobPage() {
+export default function CommitReviewJobPage({ initialJobId }: { initialJobId?: string }) {
   const [jobs, setJobs] = useState<CommitReviewJobRow[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [page, setPage] = useState(1);
@@ -138,6 +138,19 @@ export default function CommitReviewJobPage() {
   }, [page, pageLimit, filterRepo, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reached from the Agents page: open that job's detail.
+  useEffect(() => {
+    if (!initialJobId) return;
+    getCommitReviewJob(initialJobId)
+      .then((detail) => {
+        setDetailJob(detail.job ?? null);
+        setDetailResult(detail.result ?? null);
+      })
+      .catch(() => {
+        // silent, like the page's other detail loads
+      });
+  }, [initialJobId]);
 
   const handleManualCreate = async () => {
     if (!createRepo.trim() || !createCommit.trim()) return;

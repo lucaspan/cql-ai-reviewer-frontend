@@ -1,4 +1,7 @@
 import { useState } from "react";
+import type { AgentItem } from "./types/job.types";
+import AgentsPage from "./pages/AgentsPage";
+import { useAgentOverview } from "./pages/useAgentOverview";
 import JobsPage from "./pages/JobsPage";
 import JobTypesPage from "./pages/JobTypesPage";
 import CostsPage from "./pages/CostsPage";
@@ -14,6 +17,7 @@ import "./App.css";
 
 type Page =
   | "jobs"
+  | "agents"
   | "job-types"
   | "costs"
   | "reports"
@@ -34,6 +38,7 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
       { id: "jobs", label: "Jobs" },
       { id: "projects", label: "Threat Modeling" },
       { id: "commit-reviews", label: "Commit Reviews" },
+      { id: "agents", label: "Agents" },
       { id: "reports", label: "Reports" },
       { id: "costs", label: "Costs" },
     ],
@@ -51,8 +56,16 @@ const NAV_GROUPS: { label: string; items: { id: Page; label: string }[] }[] = [
   },
 ];
 
+/** The page that opens each kind of row on the Agents page. */
+const AGENT_ITEM_PAGE: Record<AgentItem["kind"], Page> = {
+  job: "jobs",
+  commit: "commit-reviews",
+  knowledge: "projects",
+};
+
 const PAGE_SUBTITLE: Record<Page, string> = {
   jobs: "Job Manager",
+  agents: "Agents",
   projects: "Threat Modeling",
   "commit-reviews": "Commit Reviews",
   reports: "Reports",
@@ -96,7 +109,17 @@ function App() {
     typeof window !== "undefined" ? window.innerWidth >= 1024 : true,
   );
 
+  const agents = useAgentOverview();
+  // The item a page opens when it was reached from the Agents page.
+  const [openItemId, setOpenItemId] = useState<string | undefined>();
+
+  const openAgentItem = (item: AgentItem) => {
+    setOpenItemId(item.targetId);
+    setPage(AGENT_ITEM_PAGE[item.kind]);
+  };
+
   const select = (id: Page) => {
+    setOpenItemId(undefined);
     setPage(id);
     // Auto-close after a selection on narrow screens (overlay drawer).
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
@@ -107,7 +130,13 @@ function App() {
   const renderPage = () => {
     switch (page) {
       case "jobs":
-        return <JobsPage />;
+        return <JobsPage initialJobId={openItemId} />;
+      case "agents":
+        return (
+          <PageShell subtitle={PAGE_SUBTITLE.agents}>
+            <AgentsPage overview={agents.overview} error={agents.error} onOpen={openAgentItem} />
+          </PageShell>
+        );
       case "job-types":
         return (
           <PageShell subtitle={PAGE_SUBTITLE["job-types"]}>
@@ -135,7 +164,7 @@ function App() {
       case "projects":
         return (
           <PageShell subtitle={PAGE_SUBTITLE.projects}>
-            <ProjectsPage />
+            <ProjectsPage initialProjectId={openItemId} />
           </PageShell>
         );
       case "settings":
@@ -147,7 +176,7 @@ function App() {
       case "commit-reviews":
         return (
           <PageShell subtitle={PAGE_SUBTITLE["commit-reviews"]}>
-            <CommitReviewJobPage />
+            <CommitReviewJobPage initialJobId={openItemId} />
           </PageShell>
         );
       case "dev-tools":
@@ -241,6 +270,11 @@ function App() {
                   aria-current={page === item.id ? "page" : undefined}
                 >
                   {item.label}
+                  {item.id === "agents" && agents.overview && (
+                    <span className="app-sidebar__count">
+                      {agents.overview.running}/{agents.overview.limit}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

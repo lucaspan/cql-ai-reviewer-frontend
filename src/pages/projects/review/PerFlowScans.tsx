@@ -13,13 +13,11 @@ export function PerFlowScans({
   knowledge,
   refresh,
   onView,
-  agentLine,
 }: {
   projectId: string;
   knowledge: ProjectKnowledge[];
   refresh: () => Promise<void>;
   onView: (id: string) => void;
-  agentLine: string | null;
 }) {
   const scans = knowledge.filter(
     (k) => k.knowledgeType === "security_scan" && k.key.startsWith("threat_map:"),
@@ -100,7 +98,6 @@ export function PerFlowScans({
             review runs the ones not done yet. The server runs a few agents at a time (Settings →
             Review Agents).
           </p>
-          {running > 0 && agentLine && <div className="pj-metrics"><span>{agentLine}</span></div>}
           {scans.length === 0 ? (
             <div className="pj-inline-empty">
               {hasThreatMap
