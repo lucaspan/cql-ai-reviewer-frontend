@@ -22,7 +22,6 @@ import Pagination from "../components/Pagination";
 import ActivityModal from "../components/ActivityModal";
 import CreateJobModal from "../components/CreateJobModal";
 import ProcessJobModal from "../components/ProcessJobModal";
-import AgentQueueStatus from "../components/AgentQueueStatus";
 import JobDetailModal from "../components/JobDetailModal";
 import BatchCreateJobModal from "../components/BatchCreateJobModal";
 import FollowUpModal from "../components/FollowUpModal";
@@ -34,7 +33,7 @@ interface Toast {
   type: "success" | "error" | "info";
 }
 
-export default function JobsPage() {
+export default function JobsPage({ initialJobId }: { initialJobId?: string }) {
   const [jobs, setJobs] = useState<Partial<GithubReviewJob>[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<GetJobsParams>({});
@@ -58,7 +57,7 @@ export default function JobsPage() {
   const [detailJob, setDetailJob] = useState<Partial<GithubReviewJob> | null>(
     null,
   );
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(Boolean(initialJobId));
 
   // Process modal
   const [processJobId, setProcessJobId] = useState<string | null>(null);
@@ -148,6 +147,15 @@ export default function JobsPage() {
     setActivities([]);
     loadActivities(id);
   };
+
+  // Reached from the Agents page: open that job's detail.
+  useEffect(() => {
+    if (!initialJobId) return;
+    getJobs({ id: initialJobId, includeResults: true })
+      .then((data) => setDetailJob(data[0] ?? null))
+      .catch((err: Error) => showToast(err.message, "error"))
+      .finally(() => setDetailLoading(false));
+  }, [initialJobId, showToast]);
 
   const handleViewDetail = async (id: string) => {
     setDetailJob(null);
@@ -372,7 +380,6 @@ export default function JobsPage() {
           </div>
 
           <div className="toolbar__actions">
-            <AgentQueueStatus />
             <button
               className="btn btn--secondary btn--icon"
               onClick={fetchJobs}

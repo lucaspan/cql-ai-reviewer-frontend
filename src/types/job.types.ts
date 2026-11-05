@@ -616,3 +616,23 @@ export interface StartRunParams {
   modelOverrides?: Record<string, RouterOverride>;
   concurrency?: number;
 }
+
+/** One row on the Agents page: a review job, a commit review, or a threat-model knowledge item. */
+export interface AgentItem {
+  id: string;
+  kind: "job" | "commit" | "knowledge";
+  title: string;
+  /** "running" means started and not finished; it may be waiting for a slot or its subtasks. */
+  status: "running" | "queued";
+  startedAt: string | null;
+  /** What opens on click: the job for a job or commit, the project for a knowledge item. */
+  targetId: string;
+}
+
+export interface AgentOverview {
+  running: number;
+  waiting: number;
+  queued: number;
+  limit: number;
+  items: AgentItem[];
+}

@@ -6,10 +6,10 @@ import { CreateProjectModal } from "./projects/modals/CreateProjectModal";
 import "./ProjectsPage.css";
 import "../components/Modal.css";
 
-export default function ProjectsPage() {
+export default function ProjectsPage({ initialProjectId }: { initialProjectId?: string }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialProjectId ?? null);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {

@@ -33,7 +33,7 @@ export function ProjectDetail({
   onDeleted: () => void;
 }) {
   const data = useProjectData(projectId);
-  const { project, knowledge, findings, loading, refresh, anyCollecting, agentLine } = data;
+  const { project, knowledge, findings, loading, refresh, anyCollecting } = data;
   const [addingRepo, setAddingRepo] = useState(false);
   const [viewingKnowledgeId, setViewingKnowledgeId] = useState<string | null>(null);
   // The tab the user picked for this project; until then, the first step not done yet
@@ -68,7 +68,7 @@ export function ProjectDetail({
           {anyCollecting && (
             <span className="pj-live" role="status">
               <span className="pj-live__dot" aria-hidden="true" />
-              {agentLine ?? "Working…"}
+              Working…
             </span>
           )}
           <button className="btn btn--secondary btn--sm" onClick={refresh} title="Reload the project">
@@ -139,21 +139,18 @@ export function ProjectDetail({
             hasRepos={repos.length > 0}
             refresh={refresh}
             setViewingKnowledgeId={setViewingKnowledgeId}
-            agentLine={agentLine}
           />
           <PerFlowScans
             projectId={projectId}
             knowledge={knowledge}
             refresh={refresh}
             onView={setViewingKnowledgeId}
-            agentLine={agentLine}
           />
           <GapAnalysisSection
             projectId={projectId}
             knowledge={knowledge}
             refresh={refresh}
             setViewingKnowledgeId={setViewingKnowledgeId}
-            agentLine={agentLine}
           />
         </>
       )}

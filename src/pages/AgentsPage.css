@@ -1,0 +1,37 @@
+.agents-page__summary {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: #4b5563;
+}
+
+.agents-page__summary strong {
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+
+.agents-page__error {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #dc2626;
+}
+
+.agents-page__link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: #6366f1;
+  cursor: pointer;
+}
+
+.agents-page__link:hover {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.agents-page__hint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}

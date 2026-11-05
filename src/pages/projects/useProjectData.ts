@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  getAgentSlots,
   getPentestSwarms,
   getProject,
   getProjectFindings,
@@ -18,7 +17,7 @@ export interface EnvItem {
 
 /**
  * Everything the project page shows, kept current: refreshed every 5 s while anything is
- * collecting, with how many agents run and wait, and a few more times after work stops.
+ * collecting, and a few more times after work stops.
  */
 export function useProjectData(projectId: string) {
   const [project, setProject] = useState<Project | null>(null);
@@ -72,11 +71,6 @@ export function useProjectData(projectId: string) {
   }, [refresh]);
 
   const anyCollecting = knowledge.some((k) => k.status === "collecting");
-  const [agentSlots, setAgentSlots] = useState<{
-    running: number;
-    waiting: number;
-    limit: number;
-  } | null>(null);
   useEffect(() => {
     if (!anyCollecting) {
       // A finished step often starts the next one (a review starts the findings summary), so
@@ -84,22 +78,11 @@ export function useProjectData(projectId: string) {
       const timers = [5_000, 15_000, 30_000].map((ms) => setTimeout(() => void refresh(), ms));
       return () => timers.forEach(clearTimeout);
     }
-    const tick = () => {
-      void refresh();
-      getAgentSlots()
-        .then(setAgentSlots)
-        .catch(() => setAgentSlots(null));
-    };
+    const tick = () => void refresh();
     tick();
     const interval = setInterval(tick, 5000);
     return () => clearInterval(interval);
   }, [anyCollecting, refresh]);
-
-  /** "3 agent(s) running, 9 waiting for a slot (limit 4)", while anything is collecting. */
-  const agentLine =
-    anyCollecting && agentSlots
-      ? `${agentSlots.running} agent(s) running, ${agentSlots.waiting} waiting for a slot (limit ${agentSlots.limit})`
-      : null;
 
   return {
     project,
@@ -112,6 +95,5 @@ export function useProjectData(projectId: string) {
     loading,
     refresh,
     anyCollecting,
-    agentLine,
   };
 }

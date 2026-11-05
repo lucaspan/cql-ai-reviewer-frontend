@@ -22,13 +22,11 @@ export function GapAnalysisSection({
   knowledge,
   refresh,
   setViewingKnowledgeId,
-  agentLine,
 }: {
   projectId: string;
   knowledge: ProjectKnowledge[];
   refresh: () => Promise<void>;
   setViewingKnowledgeId: (id: string | null) => void;
-  agentLine: string | null;
 }) {
   const gap = knowledge.find((k) => k.knowledgeType === "gap_analysis");
   const value = (gap?.value ?? {}) as GapAnalysisValue;
@@ -200,7 +198,6 @@ export function GapAnalysisSection({
             </span>
             <span>{rounds.length} round(s)</span>
             <span>{tasks.length} specialist(s)</span>
-            {running && agentLine && <span className="pj-muted">{agentLine}</span>}
             <span style={{ color: kept ? "#dc2626" : undefined }}>{kept} new kept finding(s)</span>
             {rejected > 0 && <span className="pj-muted">{rejected} rejected by verifiers</span>}
             <button className="btn btn--secondary btn--sm" onClick={() => setViewingKnowledgeId(gap.id)}>

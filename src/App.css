@@ -150,6 +150,13 @@
     color 0.15s;
 }
 
+.app-sidebar__count {
+  float: right;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
 .app-sidebar__item:hover {
   background: rgba(255, 255, 255, 0.06);
   color: white;
