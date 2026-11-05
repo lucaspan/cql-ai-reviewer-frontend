@@ -74,7 +74,10 @@ export interface CreateJobParams {
 
 export interface ProcessJobResult {
   processed: boolean;
+  /** Present for by-id process (the enqueued job). */
   jobId?: string;
+  /** Present for process-pending: how many pending jobs were enqueued. */
+  enqueued?: number;
 }
 
 export interface CreateJobResult {
