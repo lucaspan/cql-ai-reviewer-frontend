@@ -12,6 +12,8 @@ import {
 } from "../api/jobApi";
 import Pagination from "../components/Pagination";
 import ActivityModal from "../components/ActivityModal";
+import StatusBadge from "../components/StatusBadge";
+import { JOB_STATUSES, statusLabel } from "../utils/status";
 import "../components/Modal.css";
 import "./JobsPage.css";
 import "./CommitReviewJobPage.css";
@@ -325,11 +327,11 @@ export default function CommitReviewJobPage({ initialJobId }: { initialJobId?: s
           style={{ maxWidth: 150 }}
         >
           <option value="">All statuses</option>
-          <option value="PENDING">PENDING</option>
-          <option value="QUEUED">QUEUED</option>
-          <option value="IN_PROGRESS">IN_PROGRESS</option>
-          <option value="COMPLETED">COMPLETED</option>
-          <option value="FAILED">FAILED</option>
+          {JOB_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
         </select>
         <button className="btn btn--primary btn--sm" onClick={handleFetchLatest} disabled={fetching}>
           {fetching ? "Fetching..." : "Fetch Latest"}
@@ -454,9 +456,7 @@ export default function CommitReviewJobPage({ initialJobId }: { initialJobId?: s
                   <td>{job.requestPayload?.author ?? "—"}</td>
                   <td>+{job.requestPayload?.linesAdded ?? 0} / -{job.requestPayload?.linesDeleted ?? 0}</td>
                   <td>
-                    <span className={`status-badge status-badge--${job.status.toLowerCase()}`}>
-                      {job.status}
-                    </span>
+                    <StatusBadge status={job.status} />
                   </td>
                   <td>{formatDate(job.createdAt)}</td>
                   <td>
@@ -559,7 +559,7 @@ export default function CommitReviewJobPage({ initialJobId }: { initialJobId?: s
                 </div>
                 <div style={{ background: "#f9fafb", borderRadius: 8, padding: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 4 }}>Status</div>
-                  <div style={{ fontSize: 14 }}>{detailJob.status}</div>
+                  <div style={{ fontSize: 14 }}>{statusLabel(detailJob.status)}</div>
                 </div>
                 <div style={{ background: "#f9fafb", borderRadius: 8, padding: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af", marginBottom: 4 }}>Author</div>

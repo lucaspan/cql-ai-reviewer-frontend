@@ -10,6 +10,7 @@ import type {
   SecurityReviewValue,
 } from "../../../types/job.types";
 import { formatUsd, elapsed } from "../format";
+import { isInFlight, statusLabel } from "../../../utils/status";
 import { GAP_STEPS, DEFAULT_GAP_OPTIONS, liveTask } from "../reviewModel";
 import { ReviewNumberField, ReviewTaskTable, CoverageBlock, AttackChainsBlock } from "./ReviewParts";
 
@@ -32,8 +33,8 @@ export function GapAnalysisSection({
   const value = (gap?.value ?? {}) as GapAnalysisValue;
   const review = knowledge.find((k) => k.knowledgeType === "security_review");
   const reviewRunId = (review?.value as SecurityReviewValue | undefined)?.runId ?? null;
-  const reviewRunning = review?.status === "collecting";
-  const running = gap?.status === "collecting";
+  const reviewRunning = isInFlight(review?.status);
+  const running = isInFlight(gap?.status);
   const failed = !running && (gap?.status === "failed" || value.phase === "failed");
   const hasResults = knowledge.some(
     (k) => k.knowledgeType === "security_scan" && k.status === "active",
@@ -91,9 +92,9 @@ export function GapAnalysisSection({
   const blocked = !hasResults
     ? "Run the per-flow scans or a security review first"
     : reviewRunning
-      ? "A security review is running"
+      ? "A security review is in progress"
       : running
-        ? "A gap analysis is running"
+        ? "A gap analysis is in progress"
         : undefined;
 
   return (
@@ -123,7 +124,7 @@ export function GapAnalysisSection({
             disabled={starting || !!blocked}
             title={blocked}
           >
-            {starting ? "Starting…" : running ? "Running…" : gap?.status === "active" ? "Run Again" : "Start Gap Analysis"}
+            {starting ? "Starting…" : running ? `${statusLabel(gap?.status)}…` : gap?.status === "active" ? "Run Again" : "Start Gap Analysis"}
           </button>
         </div>
       </div>
@@ -189,7 +190,7 @@ export function GapAnalysisSection({
 
           <div className="pj-metrics">
             <span>
-              {running ? "Running for" : failed ? "Failed after" : "Finished in"}{" "}
+              {running ? "In progress for" : failed ? "Failed after" : "Finished in"}{" "}
               {elapsed(value.startedAt, value.finishedAt ?? (running ? null : gap.updatedAt))}
               {running && <span className="pj-muted"> · refreshing</span>}
             </span>

@@ -8,6 +8,7 @@ import {
   getTestEnvironment,
 } from "../../api/jobApi";
 import type { Project, ProjectFinding, ProjectKnowledge } from "../../types/job.types";
+import { isInFlight } from "../../utils/status";
 
 export interface EnvItem {
   key: string;
@@ -70,7 +71,7 @@ export function useProjectData(projectId: string) {
     void refresh();
   }, [refresh]);
 
-  const anyCollecting = knowledge.some((k) => k.status === "collecting");
+  const anyCollecting = knowledge.some((k) => isInFlight(k.status));
   useEffect(() => {
     if (!anyCollecting) {
       // A finished step often starts the next one (a review starts the findings summary), so

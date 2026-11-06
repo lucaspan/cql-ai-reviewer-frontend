@@ -27,6 +27,7 @@ export function PerFlowScans({
   );
   const count = (s: ProjectKnowledge["status"]) => scans.filter((x) => x.status === s).length;
   const running = count("collecting");
+  const queued = count("queued");
   const failed = count("failed");
   const waiting = count("pending") + failed;
   const findings = scans.reduce(
@@ -52,7 +53,7 @@ export function PerFlowScans({
             <span className="pj-section__title">Per-flow STRIDE Scans</span>
             <span className="pj-hint pj-collapse__summary">
               {scans.length
-                ? `${count("active")} of ${scans.length} done · ${findings} finding(s)${running ? ` · ${running} running` : ""}${failed ? ` · ${failed} failed` : ""}`
+                ? `${count("active")} of ${scans.length} completed · ${findings} finding(s)${running ? ` · ${running} in progress` : ""}${queued ? ` · ${queued} queued` : ""}${failed ? ` · ${failed} failed` : ""}`
                 : "Not created yet"}
             </span>
           </span>
@@ -85,7 +86,7 @@ export function PerFlowScans({
                 }
               }}
             >
-              {starting ? "Starting…" : `Run ${waiting} waiting`}
+              {starting ? "Starting…" : `Run ${waiting} remaining`}
             </button>
           )}
         </div>

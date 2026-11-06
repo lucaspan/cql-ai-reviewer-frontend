@@ -8,6 +8,7 @@ import {
 } from "../../../api/jobApi";
 import type { ProjectFinding, ProjectKnowledge } from "../../../types/job.types";
 import { KnowledgeStatusBadge } from "../KnowledgeStatusBadge";
+import { isInFlight } from "../../../utils/status";
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 
@@ -136,7 +137,7 @@ export function FindingsTab({
               Runs after a review or gap analysis; run it again after rescanning on your own.
             </span>
             <div className="pj-row-actions">
-              {summary.status !== "collecting" && (
+              {!isInFlight(summary.status) && (
                 <button
                   className="btn btn--secondary btn--sm"
                   onClick={async () => {

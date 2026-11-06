@@ -15,8 +15,8 @@ import "./ProjectDetail.css";
 
 const STATE_LABEL: Record<StageState, string> = {
   todo: "To do",
-  running: "Running",
-  done: "Done",
+  running: "In progress",
+  done: "Completed",
   failed: "Needs attention",
 };
 
@@ -104,7 +104,7 @@ export function ProjectDetail({
               <span className="pj-stage__label">{s.label}</span>
               <span className="pj-stage__summary">
                 <span className="pj-visually-hidden">{STATE_LABEL[s.state]}: </span>
-                {s.state === "running" ? "Running · " : s.state === "failed" ? "Needs attention · " : ""}
+                {s.state === "running" ? "In progress · " : s.state === "failed" ? "Needs attention · " : ""}
                 {s.summary}
               </span>
             </span>

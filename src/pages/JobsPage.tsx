@@ -25,6 +25,8 @@ import ProcessJobModal from "../components/ProcessJobModal";
 import JobDetailModal from "../components/JobDetailModal";
 import BatchCreateJobModal from "../components/BatchCreateJobModal";
 import FollowUpModal from "../components/FollowUpModal";
+import StatusBadge from "../components/StatusBadge";
+import { JOB_STATUSES, statusLabel } from "../utils/status";
 import "./JobsPage.css";
 
 interface Toast {
@@ -281,11 +283,6 @@ export default function JobsPage({ initialJobId }: { initialJobId?: string }) {
       .then(() => showToast("Job ID copied", "info"));
   };
 
-  const statusBadgeClass = (status?: string) => {
-    const s = status?.toLowerCase().replace("_", "_") ?? "pending";
-    return `status-badge status-badge--${s === "in_progress" ? "in_progress" : s}`;
-  };
-
   const formatDate = (dateStr?: string) =>
     dateStr ? new Date(dateStr).toLocaleString() : "—";
 
@@ -316,11 +313,11 @@ export default function JobsPage({ initialJobId }: { initialJobId?: string }) {
                 }
               >
                 <option value="">All</option>
-                <option value="PENDING">Pending</option>
-                <option value="QUEUED">Queued</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="FAILED">Failed</option>
+                {JOB_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {statusLabel(s)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -577,9 +574,7 @@ export default function JobsPage({ initialJobId }: { initialJobId?: string }) {
                       </span>
                     </td>
                     <td>
-                      <span className={statusBadgeClass(job.status)}>
-                        {job.status ?? "—"}
-                      </span>
+                      <StatusBadge status={job.status} />
                     </td>
                     <td>{formatDate(job.createdAt)}</td>
                     <td>

@@ -4,6 +4,7 @@ import {
   startKnowledgeCollection,
 } from "../../api/jobApi";
 import type { ProjectKnowledge } from "../../types/job.types";
+import { isInFlight } from "../../utils/status";
 
 /** A small "x" for delete buttons (an SVG, so it renders the same everywhere). */
 export function IconX() {
@@ -51,7 +52,7 @@ export function EntryActions({
           {rerunLabel}
         </button>
       )}
-      {entry.status === "collecting" && (
+      {isInFlight(entry.status) && (
         <button
           className="btn btn--secondary btn--sm"
           title="Mark a run that stopped reporting as failed, so it can be started again"
@@ -70,7 +71,7 @@ export function EntryActions({
         className="pj-icon-btn"
         aria-label={`Delete ${entry.key}`}
         title="Delete"
-        disabled={entry.status === "collecting"}
+        disabled={isInFlight(entry.status)}
         onClick={async () => {
           if (!confirm(deleteMessage)) return;
           await deleteProjectKnowledge(projectId, entry.id);

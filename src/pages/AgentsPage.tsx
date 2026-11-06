@@ -1,4 +1,5 @@
 import type { AgentItem, AgentOverview } from "../types/job.types";
+import StatusBadge from "../components/StatusBadge";
 import "./JobsPage.css";
 import "./AgentsPage.css";
 
@@ -29,7 +30,7 @@ export default function AgentsPage({
           <strong>
             {overview.running}/{overview.limit}
           </strong>{" "}
-          running · {overview.waiting} waiting for a slot · {overview.queued} queued
+          running · {overview.queued} queued
         </p>
       )}
       {error && (
@@ -65,11 +66,7 @@ export default function AgentsPage({
                     </button>
                   </td>
                   <td>
-                    {item.status === "running" ? (
-                      <span className="status-badge status-badge--in_progress">In progress</span>
-                    ) : (
-                      <span className="status-badge status-badge--queued">Queued</span>
-                    )}
+                    <StatusBadge status={item.status} />
                   </td>
                   <td>{item.startedAt ? new Date(item.startedAt).toLocaleString() : "—"}</td>
                 </tr>
@@ -83,8 +80,9 @@ export default function AgentsPage({
         <p className="agents-page__hint">{queuedHidden} more queued item(s) not shown.</p>
       )}
       <p className="agents-page__hint">
-        In progress includes items waiting for a slot or for their subtasks. Follow-up passes count
-        in the totals but aren't listed.
+        Queued items are waiting for an agent slot. In progress can be more than the running count:
+        it includes items preparing to run or waiting for their subtasks. Follow-up passes count in
+        the totals but aren't listed.
       </p>
     </div>
   );
