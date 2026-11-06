@@ -10,6 +10,7 @@ import type {
   SecurityReviewValue,
 } from "../../../types/job.types";
 import { formatUsd, elapsed } from "../format";
+import { isInFlight, statusLabel } from "../../../utils/status";
 import { REVIEW_STEPS, DEFAULT_REVIEW_OPTIONS, liveTask } from "../reviewModel";
 import { ReviewNumberField, ReviewTaskTable, CoverageBlock, AttackChainsBlock } from "./ReviewParts";
 
@@ -32,7 +33,7 @@ export function SecurityReviewSection({
 }) {
   const run = knowledge.find((k) => k.knowledgeType === "security_review");
   const value = (run?.value ?? {}) as SecurityReviewValue;
-  const running = run?.status === "collecting";
+  const running = isInFlight(run?.status);
   // A run the server stopped on (phase "failed") or that a restart interrupted (status only)
   const failed = !running && (run?.status === "failed" || value.phase === "failed");
   const hasThreatMap = knowledge.some(
@@ -59,7 +60,7 @@ export function SecurityReviewSection({
     !!value.runId &&
     gapValue.baseRunId === value.runId &&
     (gapValue.chains ?? []).length > 0;
-  const gapRunning = gap?.status === "collecting";
+  const gapRunning = isInFlight(gap?.status);
 
   const start = async () => {
     setStarting(true);
@@ -121,13 +122,13 @@ export function SecurityReviewSection({
               !hasRepos
                 ? "Add repositories first"
                 : running
-                  ? "A review is running"
+                  ? "A review is in progress"
                   : gapRunning
-                    ? "A gap analysis is running"
+                    ? "A gap analysis is in progress"
                     : undefined
             }
           >
-            {starting ? "Starting…" : running ? "Running…" : run?.status === "active" ? "Re-run Review" : "Start Review"}
+            {starting ? "Starting…" : running ? `${statusLabel(run?.status)}…` : run?.status === "active" ? "Re-run Review" : "Start Review"}
           </button>
         </div>
       </div>
@@ -202,7 +203,7 @@ export function SecurityReviewSection({
 
           <div className="pj-metrics">
             <span>
-              {running ? "Running for" : failed ? "Failed after" : "Finished in"}{" "}
+              {running ? "In progress for" : failed ? "Failed after" : "Finished in"}{" "}
               {elapsed(value.startedAt, value.finishedAt ?? (running ? null : run.updatedAt))}
               {running && <span className="pj-muted"> · refreshing</span>}
             </span>

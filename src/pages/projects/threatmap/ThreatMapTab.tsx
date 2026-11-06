@@ -8,6 +8,7 @@ import ThreatMapGraph from "../../../components/ThreatMapGraph";
 import { EntryActions } from "../EntryActions";
 import { KnowledgeStatusBadge } from "../KnowledgeStatusBadge";
 import { threatMapGraph } from "../pipeline";
+import { isInFlight } from "../../../utils/status";
 
 /** Step 2: the threat map, built from the setup knowledge, and its graph. */
 export function ThreatMapTab({
@@ -107,8 +108,12 @@ export function ThreatMapTab({
               <ThreatMapGraph graph={graph as Parameters<typeof ThreatMapGraph>[0]["graph"]} />
             </div>
           ) : (
-            entry.status === "collecting" && (
-              <div className="pj-inline-empty">Building the threat map…</div>
+            isInFlight(entry.status) && (
+              <div className="pj-inline-empty">
+                {entry.status === "queued"
+                  ? "Waiting for an agent slot…"
+                  : "Building the threat map…"}
+              </div>
             )
           )}
           {stats && stats.flows > 0 && (

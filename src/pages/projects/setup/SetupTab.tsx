@@ -201,7 +201,7 @@ export function SetupTab({
                         }
                       }}
                     >
-                      Run {waiting.length} waiting
+                      Run {waiting.length} remaining
                     </button>
                   )}
                   {missing > 0 && (

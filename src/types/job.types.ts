@@ -282,6 +282,7 @@ export interface Project {
 
 export type ProjectKnowledgeStatus =
   | "pending"
+  | "queued"
   | "collecting"
   | "active"
   | "failed"
@@ -622,7 +623,7 @@ export interface AgentItem {
   id: string;
   kind: "job" | "commit" | "knowledge";
   title: string;
-  /** "running" means started and not finished; it may be waiting for a slot or its subtasks. */
+  /** "queued" is waiting for a slot; "running" has started and may be waiting for its subtasks. */
   status: "running" | "queued";
   startedAt: string | null;
   /** What opens on click: the job for a job or commit, the project for a knowledge item. */
@@ -631,7 +632,6 @@ export interface AgentItem {
 
 export interface AgentOverview {
   running: number;
-  waiting: number;
   queued: number;
   limit: number;
   items: AgentItem[];

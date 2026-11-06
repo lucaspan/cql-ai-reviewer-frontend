@@ -5,6 +5,7 @@ import type {
   ProjectRepo,
   SecurityReviewValue,
 } from "../../types/job.types";
+import { isInFlight } from "../../utils/status";
 
 /** The threat-modeling pipeline, in the order a project goes through it: one tab each. */
 export type StageId = "setup" | "threatMap" | "analysis" | "findings" | "testing";
@@ -29,7 +30,7 @@ export const SETUP_TYPES = [
 const isSetupType = (t: string) => (SETUP_TYPES as readonly string[]).includes(t);
 
 function stateOf(entries: ProjectKnowledge[]): StageState {
-  if (entries.some((e) => e.status === "collecting")) return "running";
+  if (entries.some((e) => isInFlight(e.status))) return "running";
   if (entries.some((e) => e.status === "failed")) return "failed";
   if (entries.length > 0 && entries.every((e) => e.status === "active")) return "done";
   return "todo";
@@ -77,7 +78,7 @@ export function pipelineStages(
   const perFlow = scans.filter((k) => k.key.startsWith("threat_map:"));
   const analysisEntries = [review, gap, ...scans].filter((k): k is ProjectKnowledge => !!k);
   let analysisState: StageState = "todo";
-  if (analysisEntries.some((k) => k.status === "collecting")) analysisState = "running";
+  if (analysisEntries.some((k) => isInFlight(k.status))) analysisState = "running";
   else if (review?.status === "failed" || gap?.status === "failed") analysisState = "failed";
   else if (review?.status === "active") analysisState = "done";
   else if (perFlow.length && perFlow.every((k) => k.status === "active")) analysisState = "done";
@@ -107,7 +108,7 @@ export function pipelineStages(
   const swarms = knowledge.filter((k) => k.knowledgeType === "pentest_swarm");
   const testing = [...tests, ...swarms];
   let testingState: StageState = "todo";
-  if (testing.some((k) => k.status === "collecting")) testingState = "running";
+  if (testing.some((k) => isInFlight(k.status))) testingState = "running";
   else if (testing.some((k) => k.status === "failed")) testingState = "failed";
   else if (env?.status === "active" && testing.some((k) => k.status === "active"))
     testingState = "done";
@@ -132,9 +133,11 @@ export function pipelineStages(
           ? `${flows} data flow${flows === 1 ? "" : "s"}`
           : map.status === "collecting"
             ? "Building…"
-            : map.status === "failed"
-              ? "Failed"
-              : "Not built",
+            : map.status === "queued"
+              ? "Waiting for an agent slot"
+              : map.status === "failed"
+                ? "Failed"
+                : "Not built",
     },
     {
       id: "analysis",

@@ -6,6 +6,9 @@ import {
 import type {
   ProjectKnowledge,
 } from "../../../types/job.types";
+import StatusBadge from "../../../components/StatusBadge";
+import { isInFlight } from "../../../utils/status";
+import { KnowledgeStatusBadge } from "../KnowledgeStatusBadge";
 
 export function SwarmSection({
   projectId, swarms, knowledge, swarmConfig, setSwarmConfig, swarmStarting, setSwarmStarting, refresh, setViewingKnowledgeId,
@@ -27,7 +30,7 @@ export function SwarmSection({
   const latestSpecs = latestVal?.specialists ?? [];
   const latestPlan = latestVal?.plan;
   const latestCoverage = latestVal?.coverageSummary;
-  const isLatestRunning = latest?.status === "collecting";
+  const isLatestRunning = isInFlight(latest?.status);
 
 
   const inputStyle: React.CSSProperties = { width: 64, marginLeft: 4, fontSize: 11, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4 };
@@ -81,11 +84,7 @@ export function SwarmSection({
                   const b = v.budget ?? {};
                   const specs = v.specialists ?? [];
                   const findingCount = v.findings?.length ?? 0;
-                  const isRunning = sw.status === "collecting";
-                  const statusPill = sw.status === "active"
-                    ? "pj-pill--resolved"
-                    : sw.status === "failed" ? "pj-pill--critical"
-                    : sw.status === "collecting" ? "" : "pj-pill--muted";
+                  const isRunning = isInFlight(sw.status);
                   const pct = b.maxTokens ? Math.min(100, Math.round(((b.tokensUsed ?? 0) / b.maxTokens) * 100)) : 0;
 
                   return (
@@ -97,14 +96,14 @@ export function SwarmSection({
                         </div>
                       </td>
                       <td>
-                        <span className={`pj-pill ${statusPill}`}>{sw.status}</span>
+                        <KnowledgeStatusBadge status={sw.status} error={sw.error} />
                         {isRunning && <span style={{ fontSize: 10, color: "#6366f1", marginLeft: 4 }}>auto-refreshing</span>}
                       </td>
                       <td>
                         <div style={{ fontSize: 13 }}>{specs.length} / {b.maxSpecialists ?? "?"}</div>
                         <div style={{ fontSize: 11, color: "#6b7280" }}>
-                          {specs.filter((s: any) => s.status === "completed").length} done
-                          {specs.some((s: any) => s.status === "running") ? ", 1 running" : ""}
+                          {specs.filter((s: any) => s.status === "completed").length} completed
+                          {specs.some((s: any) => s.status === "running") ? ", 1 in progress" : ""}
                         </div>
                       </td>
                       <td style={{ fontSize: 13 }}>{findingCount}</td>
@@ -182,9 +181,7 @@ export function SwarmSection({
                       <td className="pj-mono" style={{ fontSize: 11 }}>{s.id}</td>
                       <td style={{ fontSize: 12, maxWidth: 300 }}>{s.scope}</td>
                       <td>
-                        <span className={`pj-pill ${s.status === "completed" ? "pj-pill--resolved" : s.status === "failed" ? "pj-pill--critical" : s.status === "running" ? "" : "pj-pill--muted"}`}>
-                          {s.status}
-                        </span>
+                        <StatusBadge status={s.status} small />
                       </td>
                       <td style={{ fontSize: 13 }}>{s.findingsCount ?? 0}</td>
                       <td style={{ fontSize: 12 }}>{(s.tokensUsed ?? 0).toLocaleString()}</td>

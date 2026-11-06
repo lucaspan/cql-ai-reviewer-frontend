@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { GithubReviewJob } from "../types/job.types";
 import { publishJob, dismissFinding, reactivateFinding } from "../api/jobApi";
+import { statusLabel } from "../utils/status";
 import "./Modal.css";
 import "./JobDetailModal.css";
 
@@ -129,7 +130,7 @@ export default function JobDetailModal({
                   <Field label="Repository" value={job.githubRepo} />
                   <Field label="Branch" value={job.githubBranch} mono />
                   <Field label="Commit" value={job.githubCommit} mono />
-                  <Field label="Status" value={job.status} />
+                  <Field label="Status" value={statusLabel(job.status)} />
                   <Field
                     label="Job Type / Version"
                     value={jobTypeVersionDisplay}

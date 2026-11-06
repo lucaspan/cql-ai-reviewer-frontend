@@ -8,6 +8,7 @@ import {
 } from "../../../api/jobApi";
 import type { ProjectFinding, ProjectKnowledge } from "../../../types/job.types";
 import { EntryActions, IconX } from "../EntryActions";
+import { KnowledgeStatusBadge } from "../KnowledgeStatusBadge";
 import type { EnvItem } from "../useProjectData";
 import { SwarmSection } from "./SwarmSection";
 
@@ -209,7 +210,7 @@ export function TestingTab({
                   await refresh();
                 }}
               >
-                Run waiting tests
+                Run remaining tests
               </button>
             )}
             <button
@@ -276,15 +277,7 @@ export function TestingTab({
                           </div>
                         </td>
                         <td className="pj-col-status">
-                          {t.status === "needs_info" ? (
-                            <span className="pj-status pj-status--sm pj-status--pending pj-text-warn">
-                              Needs input
-                            </span>
-                          ) : (
-                            <span className={`pj-status pj-status--sm pj-status--${t.status === "active" ? "done" : t.status === "failed" ? "failed" : t.status === "collecting" ? "progress" : "pending"}`}>
-                              {t.status === "active" ? "Done" : t.status === "collecting" ? "Running" : t.status === "failed" ? "Failed" : "Pending"}
-                            </span>
-                          )}
+                          <KnowledgeStatusBadge status={t.status} error={t.error} />
                         </td>
                         <td>
                           {tv.result === "validated" ? (
